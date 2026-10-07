@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-os.environ.setdefault("HF_HUB_OFFLINE", "1")     # models come from download.py; never wait on the Hub
 from transformers import (AutoModelForCausalLM, AutoTokenizer, GenerationConfig, LogitsProcessor,
                           LogitsProcessorList)
 
