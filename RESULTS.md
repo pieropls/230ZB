@@ -1,4 +1,6 @@
 # Results
+Piero Pelosi, Romain Almeida, Elias Roubache · MFE 230ZB – Generative AI and Causality · UC Berkeley MFE · Fall 2026 · Instructor: Prof. Ali Kakhbod
+
 Detailed report of the reproduction of Kirchenbauer et al., *A Watermark for Large Language Models* (ICML 2023), and of two extensions. The [README](README.md) has the overview; every number below comes from a file in `results/summary/`, rebuilt by `watermark.ipynb`.
 
 Environment: Apple M5 Pro, 24 GB unified memory (`hw.memsize` = 25769803776), macOS 27.0.1, device `mps`, dtype fp16 (logits finite; argmax agreement with fp32 = 0.9996 on 4 prompts, `results/summary/phase0_check.jsonl`). T5-Large in bf16. Python 3.12.5, torch 2.14.1, transformers 5.18.0, numpy 2.5.3, scipy 1.18.1, scikit-learn 1.9.1, extra package `tabulate` (pandas markdown tables).

@@ -4,9 +4,11 @@
 
 ### A reproduction of *A Watermark for Large Language Models* (Kirchenbauer et al., ICML 2023), and two extensions
 
-**Piero Pelosi**
-
 MFE 230ZB – Generative AI and Causality · UC Berkeley MFE · Fall 2026
+
+Instructor: Prof. Ali Kakhbod
+
+**Piero Pelosi, Romain Almeida, Elias Roubache**
 
 [Results report](RESULTS.md) · [Notebook](watermark.ipynb) · [Paper](https://arxiv.org/abs/2301.10226) · [Official code](https://github.com/jwkirchenbauer/lm-watermarking)
 
@@ -317,7 +319,7 @@ All listed with their reasons in [RESULTS.md](RESULTS.md#deviations). The main o
 
 ## How Claude was used
 
-I specified the paper, the scope, the extensions and the checks. Claude Code wrote the code and ran the experiments under that specification, and I reviewed the results.
+We specified the paper, the scope, the extensions and the checks. Claude Code wrote the code and ran the experiments under that specification, and we reviewed the results.
 
 ---
 
