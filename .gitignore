@@ -1,0 +1,13 @@
+# environment
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# downloaded by download.py
+data/
+external/
+
+# local
+logs/
+.DS_Store

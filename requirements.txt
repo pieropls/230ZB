@@ -1,0 +1,20 @@
+# Python 3.12; versions used for every result in this repository (Apple M5 Pro, macOS, mps)
+torch==2.14.1
+transformers==5.18.0
+huggingface_hub==1.33.0
+tokenizers==0.23.2
+safetensors==0.8.0
+sentencepiece==0.2.2
+protobuf==7.36.2
+numpy==2.5.3
+pandas==3.0.6
+pyarrow==25.0.1
+scipy==1.18.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+tabulate==0.10.0
+tqdm==4.70.1
+nltk==3.10.3          # imported by the official watermark code (green-list equivalence test)
+jupyter==1.1.1
+ipykernel==7.4.0
+nbconvert==7.17.1
