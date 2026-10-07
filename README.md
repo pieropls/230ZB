@@ -43,7 +43,7 @@ The idea is now in production. Since August 2026 Anthropic watermarks Claude's t
 
 **Soft watermark.** With logits $l_k$ and bias $\delta$, the next token is sampled from
 
-$$\hat p_k = \frac{\exp\big(l_k + \delta\,\mathbb 1[k \in G_t]\big)}{\sum_i \exp\big(l_i + \delta\,\mathbb 1[i \in G_t]\big)}.$$
+$$\hat p_k = \frac{\exp\big(l_k + \delta \cdot \mathbf{1}[k \in G_t]\big)}{\sum_i \exp\big(l_i + \delta \cdot \mathbf{1}[i \in G_t]\big)}.$$
 
 **Detection.** For a text of $T$ tokens with $|s|_G$ green tokens,
 
@@ -51,9 +51,9 @@ $$z = \frac{|s|_G - \gamma T}{\sqrt{T\gamma(1-\gamma)}},$$
 
 and the text is flagged when $z > 4$ (one-sided $p \approx 3 \times 10^{-5}$).
 
-**Spike entropy and Theorem 4.2.** With $\alpha = e^{\delta}$, the spike entropy of a distribution $p$ is $S(p, z) = \sum_k \frac{p_k}{1 + z\,p_k}$ with modulus $z^\ast = \frac{(1-\gamma)(\alpha-1)}{1+(\alpha-1)\gamma}$. If the average spike entropy along a text is at least $S^\ast$, the expected number of green tokens satisfies
+**Spike entropy and Theorem 4.2.** With $\alpha = e^{\delta}$, the spike entropy of a distribution $p$ is $S(p, z) = \sum_k \frac{p_k}{1 + z p_k}$ with modulus $z^\ast = \frac{(1-\gamma)(\alpha-1)}{1+(\alpha-1)\gamma}$. If the average spike entropy along a text is at least $S^\ast$, the expected number of green tokens satisfies
 
-$$\mathbb E\,|s|_G \;\ge\; \frac{\gamma \alpha T}{1 + (\alpha - 1)\gamma}\, S^\ast .$$
+$$\mathbb{E}|s|_G \ge \frac{\gamma \alpha T}{1 + (\alpha - 1)\gamma} S^\ast .$$
 
 The paper evaluates $S$ on the raw distribution $\mathrm{softmax}(l)$. Its code, like ours, adds δ before dividing by the sampling temperature τ = 0.7, so the distribution actually sampled is the watermark with bias δ/τ applied to $\mathrm{softmax}(l/\tau)$. Extension 1a recomputes the bound on that distribution.
 
