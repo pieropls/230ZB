@@ -1,6 +1,6 @@
 """One-time download of the data, models and reference code (only needed to re-run experiments).
 
-    python download.py            # everything (~20 GB: six models, 19.9 GB, plus about 0.1 GB of data and code)
+    python download.py            # everything (~20 GB: six models, 19.8 GB, plus about 0.1 GB of data and code)
     python download.py --core     # only what the paper reproduction needs (OPT-1.3B, OPT-2.7B, T5-Large: 13.6 GB)
     python download.py --check    # report what is already on disk
 
