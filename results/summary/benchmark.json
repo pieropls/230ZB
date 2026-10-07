@@ -1,0 +1,30 @@
+{
+ "note": "Seconds per sequence measured before the runs (Apple M5 Pro, 24 GB, mps, fp16); t5_round_* = seconds for one masking round over 32 texts (50 beams, 20 returned).",
+ "opt_multinomial_batch8": 0.8412798643112183,
+ "opt_multinomial_batch16": 0.59480319917202,
+ "opt_multinomial_batch32": 0.7419578805565834,
+ "opt_4beam_batch4": 7.126205503940582,
+ "opt_8beam_batch4": 9.150121986865997,
+ "oracle_ppl_opt2.7b": 0.3105471432209015,
+ "qwen_base_news": 0.5304889380931854,
+ "qwen_instruct_news": 0.5204887539148331,
+ "qwen_paraphrase": 0.6269042640924454,
+ "t5_round_fp32_batch8_first": 19.13555097579956,
+ "t5_round_fp32_batch8": [
+  14.6,
+  16.0,
+  33.4
+ ],
+ "t5_round_bf16_batch8": [
+  8.9,
+  10.0,
+  9.6
+ ],
+ "t5_round_bf16_batch16": [
+  9.4,
+  10.2,
+  10.4
+ ],
+ "t5_fp32_vs_bf16": "same first replacement for the 8 sequences checked, same success count (96/96) after 3 rounds",
+ "t5_max_new_tokens_6_vs_10": "6 is 25% faster but changes 10 of 32 texts; 10 kept"
+}

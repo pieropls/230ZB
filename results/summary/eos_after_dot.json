@@ -1,0 +1,64 @@
+{
+ "next_after_dot": [
+  [
+   "\n",
+   0.4334938866246758
+  ],
+  [
+   " The",
+   0.05909596146721008
+  ],
+  [
+   "\ufffd",
+   0.0322341608002964
+  ],
+  [
+   "EOS",
+   0.028899592441645052
+  ],
+  [
+   " It",
+   0.028158577250833643
+  ],
+  [
+   " I",
+   0.026861800666913672
+  ],
+  [
+   " \"",
+   0.024453501296776585
+  ],
+  [
+   " \ufffd",
+   0.02408299370137088
+  ],
+  [
+   " He",
+   0.022786217117450908
+  ],
+  [
+   " We",
+   0.0161170804001482
+  ]
+ ],
+ "15485863": {
+  "eos_green": true,
+  "green_mass_of_other_continuations": 0.3285005723006486,
+  "eos_prob_multiplier": 2.2927477927713524
+ },
+ "15485867": {
+  "eos_green": false,
+  "green_mass_of_other_continuations": 0.7741320106829455,
+  "eos_prob_multiplier": 0.17232358334744494
+ },
+ "32452843": {
+  "eos_green": true,
+  "green_mass_of_other_continuations": 0.8149561236169401,
+  "eos_prob_multiplier": 1.1839601107451032
+ },
+ "49979687": {
+  "eos_green": false,
+  "green_mass_of_other_continuations": 0.3470049599389546,
+  "eos_prob_multiplier": 0.3171620067447275
+ }
+}

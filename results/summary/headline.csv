@@ -1,0 +1,20 @@
+quantity,paper,ours,ours_95ci
+generations kept (T in 195..205),507.0,497.0,
+generated (dropped by the T filter),,998 (501),"kept share 0.498 [0.467, 0.529]"
+average spike entropy S,0.807,0.8129,
+Thm 4.2 lower bound on E|s|_G,142.2,143.2048,
+observed mean green count,159.5,158.3387,"[157.5, 159.2]"
+Thm 4.2 upper bound on sd,6.41,6.377,
+observed sd of green count,,9.8547,
+"predicted detection at z = 4 (Gaussian, from the bounds)",0.986,0.9904,
+observed TPR at z = 4,0.984,0.9859,"[0.971, 0.993]"
+"observed TPR at z = 4, 4-way beam search",0.996,1.0,"[0.975, 1.000]"
+4-beam count,,150.0,
+TPR at z = 4 above the 25th entropy percentile,1.0,1.0,"[0.990, 1.000]"
+sequences above the 25th percentile,375.0,373.0,
+FPR at z = 4 on human baselines,0.0,0.0,"[0.000, 0.004]"
+mean z drop after decode -> re-encode,,0.0048,
+"z ignoring repeated (context, token) pairs: TPR at z = 4",,0.9718,"[0.953, 0.983]"
+"Ext 1a: corrected bound (S_sampled, alpha = e^(delta/tau)) on E|s|_G",,134.9898,
+Ext 1a: average S_sampled,,0.7137,
+"Gaussian formula applied to the paper's own bounds (142.2, 6.41)",0.986,0.985,

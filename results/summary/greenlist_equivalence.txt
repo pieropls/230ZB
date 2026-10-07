@@ -1,0 +1,10 @@
+Green-list equivalence: core.greenlist_ids vs external/lm-watermarking/watermark_processor.py
+WatermarkBase._get_greenlist_ids (simple_1 seeding, hash key 15485863, CPU torch.Generator).
+torch 2.14.1
+
+facebook/opt-1.3b            V=  50265 gamma=0.25  1000/1000 previous-token ids give identical green lists (same ids, same order)  PASS
+facebook/opt-1.3b            V=  50265 gamma=0.50  1000/1000 previous-token ids give identical green lists (same ids, same order)  PASS
+Qwen/Qwen2.5-1.5B            V= 151665 gamma=0.25  200/200 previous-token ids give identical green lists (same ids, same order)  PASS
+Qwen/Qwen2.5-1.5B            V= 151665 gamma=0.50  200/200 previous-token ids give identical green lists (same ids, same order)  PASS
+
+OVERALL: PASS

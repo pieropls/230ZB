@@ -1,0 +1,68 @@
+{
+ "'.'": {
+  "prev_id": 4,
+  "eos_rank_share": 0.4045,
+  "green_at": {
+   "0.1": false,
+   "0.25": false,
+   "0.5": true,
+   "0.75": true,
+   "0.9": true
+  }
+ },
+ "'\\n'": {
+  "prev_id": 50118,
+  "eos_rank_share": 0.0752,
+  "green_at": {
+   "0.1": true,
+   "0.25": true,
+   "0.5": true,
+   "0.75": true,
+   "0.9": true
+  }
+ },
+ "'\\n\\n'": {
+  "prev_id": 50140,
+  "eos_rank_share": 0.7149,
+  "green_at": {
+   "0.1": false,
+   "0.25": false,
+   "0.5": false,
+   "0.75": true,
+   "0.9": true
+  }
+ },
+ "'!'": {
+  "prev_id": 328,
+  "eos_rank_share": 0.0599,
+  "green_at": {
+   "0.1": true,
+   "0.25": true,
+   "0.5": true,
+   "0.75": true,
+   "0.9": true
+  }
+ },
+ "'?'": {
+  "prev_id": 116,
+  "eos_rank_share": 0.2758,
+  "green_at": {
+   "0.1": false,
+   "0.25": false,
+   "0.5": true,
+   "0.75": true,
+   "0.9": true
+  }
+ },
+ "'\"'": {
+  "prev_id": 113,
+  "eos_rank_share": 0.8945,
+  "green_at": {
+   "0.1": false,
+   "0.25": false,
+   "0.5": false,
+   "0.75": false,
+   "0.9": true
+  }
+ }
+}
