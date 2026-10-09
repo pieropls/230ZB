@@ -297,6 +297,7 @@ The total is about 20 hours, dominated by the T5 attacks and 8-beam search. Samp
 ├── requirements.txt      pinned versions
 ├── LICENSE
 ├── figures/              18 figures (PNG) and the TriviaQA table
+├── presentation/         class slides (beamer, compiles on Overleaf): main.tex, main.pdf, slide figures, NUMBERS.md
 └── results/
     ├── prompts_c4.jsonl.gz   2,000 C4 prompts with their human baselines
     ├── raw/                  every generation, attack and perplexity (gzipped JSON lines)
