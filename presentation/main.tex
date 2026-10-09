@@ -187,22 +187,21 @@
     \begin{column}{0.49\textwidth}
       \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=emails]
         \key{A}\par\vspace{0.2em}
-        {\footnotesize\raggedright\emailHumanPlain\par}
+        {\small\raggedright\emailHumanPlain\par}
       \end{tcolorbox}
     \end{column}
     \begin{column}{0.49\textwidth}
       \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=emails]
         \key{B}\par\vspace{0.2em}
-        {\footnotesize\raggedright\emailAIPlain\par}
+        {\small\raggedright\emailAIPlain\par}
       \end{tcolorbox}
     \end{column}
   \end{columns}
-  \vspace{0.3em}
+  \vspace{1.2em}
 
   {\centering\large One of them I wrote with AI. \key{Which one?}\par}
-  \note{Ask for a show of hands: A or B? Then let the room enjoy ``[insert topic]''.
-  B is real output of Qwen2.5-1.5B-Instruct with our watermark (gamma 0.25, delta 2, temperature 0.7), asked for a short email to Professor Kakhbod about a Zoom meeting; sample 11 of \emailSamples, picked because it is funny and complete (snippets/emails.json). A is the human email (EMAIL\_HUMAN in make\_figures.py). The side was drawn at random.
-  Point to make: here the AI gave itself away, but a careful user would delete the placeholders. Then what?}
+  \note{Show of hands: A or B? Expect a split vote: that is the point. Models now write like us, which is the classifier's problem on the next slide.
+  B is real output of Qwen2.5-1.5B-Instruct with our watermark (gamma 0.25, delta 2, temperature 0.7), asked for a short, casual email to Professor Kakhbod about a Zoom call; sample 4 of \emailSamples, picked because it reads like a student wrote it (snippets/emails.json). A is the human email (EMAIL\_HUMAN in make\_figures.py). The side was drawn at random.}
 \end{frame}
 
 % ---- 3 ----------------------------------------------------------------
@@ -227,7 +226,7 @@
   \vspace{0.6em}
   \quiet{\small OpenAI withdrew its classifier in July 2023 for its low rate of accuracy.}
   \note{OpenAI blog, ``New AI classifier for indicating AI-written text'' (31 Jan 2023, updated 20 Jul 2023): 26\% true positives, 9\% false positives on their challenge set; withdrawn for low accuracy.
-  Talking point: with 9\% false positives, Professor Kakhbod would wrongly accuse about one honest email in eleven.
+  Talking point: the vote just showed problem 2, models now write like humans. With 9\% false positives, Professor Kakhbod would also wrongly accuse about one honest email in eleven.
   The paper's numbers come on the next slide.}
 \end{frame}
 
@@ -279,15 +278,13 @@
       \raggedright\small
       \begin{enumerate}
         \item A secret key colours every token \gtok{green} or \rtok{red}, based on the token before it. A quarter of the vocabulary is green.
-        \item I cannot see the colours: about 1 in 4 of my tokens is green.
-        \item The AI was pushed toward green as it wrote.
+        \item A human does not know the key, so their tokens land on green only by luck: about 1 in 4.
+        \item The AI was pushed toward green while writing, so green piles up.
       \end{enumerate}
       \vspace{0.2em}
       \begin{goldbox}
         \raggedright B: \emailAIGreen\ green where chance gives \emailAIExpected, $z = \emailAIZ$. By chance: \emailAIOdds.
       \end{goldbox}
-      \vspace{0.2em}
-      {\scriptsize\quiet{Since August 2026, Anthropic watermarks Claude's text with a scheme from this family (a version of SynthID-Text).}\par}
     \end{column}
     \begin{column}{0.62\textwidth}
       \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=7pt,right=7pt,top=3pt,bottom=3pt,before skip=0pt,after skip=4pt]
@@ -298,11 +295,13 @@
         {\footnotesize\key{B}\quad green tokens: \emailAIGreen\ of \emailAITokens, chance gives \emailAIExpected}\par\vspace{0.15em}
         {\scriptsize\raggedright\emailAIColor\par}
       \end{tcolorbox}
+      \vspace{0.3em}
+      {\footnotesize\raggedright\quiet{Since August 2026, Anthropic watermarks Claude's text with a scheme from this family (a version of SynthID-Text).}\par}
     \end{column}
   \end{columns}
   \note{Colours are real: the detector run on both emails with the Qwen tokenizer and our key, gamma = 0.25 (snippets/emails.tex, made by make\_figures.py). The first token's context is the end of the chat prompt.
   A (mine): \emailHumanGreen\ green of \emailHumanTokens\ tokens, z = \emailHumanZ. B (AI, delta = 2): \emailAIGreen\ of \emailAITokens, z = \emailAIZ, one-sided p-value: \emailAIOdds.
-  Across all \emailSamples\ AI samples, \emailSamplesAbove\ exceed z = 4 (median z \emailSamplesMedian): this one is typical, not cherry-picked for its z.
+  Honest caveat if asked: emails this short are hard to detect. Only \emailSamplesAbove\ of the \emailSamples\ AI samples exceed z = 4 (median z \emailSamplesMedian); we showed one that both reads naturally and is detected. Short text is exactly Extension 1.
   Tokens are words or pieces of words: ``Kakhbod'' is four tokens. Anthropic line: from Anthropic's public statement, as given in the brief.}
 \end{frame}
 

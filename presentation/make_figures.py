@@ -497,15 +497,15 @@ def instruct_entropy():
 
 
 # ---------------------------------------------------------------------------------------------- opening emails
-EMAIL_PROMPT = ("Write a short email (about 50 words) from Piero, an MFE student at UC Berkeley, to Professor Ali Kakhbod, "
-                "asking to schedule a Zoom meeting to discuss his team's fall project. No subject line. Output only the email.")
-EMAIL_HUMAN = ("Subject: Zoom meeting for our fall project\n\n"
-               "Hi Professor Kakhbod,\n\n"
-               "Romain, Elias and I picked the watermarking paper for our fall project. Could we grab 20 minutes on Zoom "
-               "to run our plan by you before we start the experiments? Thursday afternoon or Friday morning both work "
-               "for us, but we can adapt to your schedule.\n\n"
-               "Thanks a lot,\nPiero")                                        # the human email: replace with your own text
-EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 16, 11, 0, 0.25, 2.0
+EMAIL_PROMPT = ("Write a short, casual email from Piero, an MFE student at UC Berkeley, to Professor Ali Kakhbod. Piero wants a "
+                "20-minute Zoom call this week with his teammates Romain and Elias to go over their fall project on watermarking "
+                "language models. Write it the way a busy student would: three short sentences, friendly and direct, no subject "
+                "line, no 'I hope this email finds you well', no placeholders. Start with 'Hi Professor Kakhbod,' and sign 'Thanks, Piero'.")
+EMAIL_HUMAN = ("Hi Professor Kakhbod,\n\n"
+               "Romain, Elias and I settled on the LLM watermarking paper for our fall project. Would you have 20 minutes "
+               "on Zoom this week to go over our plan? We're flexible on Thursday and Friday.\n\n"
+               "Thanks,\nPiero")                                              # the human email: replace with your own text
+EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 32, 4, 1, 0.25, 2.0   # sample 4 reads most like a student
 EMAIL_CACHE = os.path.join(SNIP, "emails.json")
 
 
