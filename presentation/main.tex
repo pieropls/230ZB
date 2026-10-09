@@ -201,7 +201,7 @@
 
   {\centering\large One of them I wrote with AI. \key{Which one?}\par}
   \note{Show of hands: A or B? Expect a split vote: that is the point. Models now write like us, which is the classifier's problem on the next slide.
-  B is real output of Qwen2.5-1.5B-Instruct with our watermark (gamma 0.25, delta 2, temperature 0.7), given the same points as A (chosen paper, 20 minutes on Zoom, Thursday or Friday) and told to write plainly; sample 44 of \emailSamples, picked because it reads like a student wrote it (snippets/emails.json). Its slip, ``your paper'', is the model's. A is the human email (EMAIL\_HUMAN in make\_figures.py). The side was drawn at random.}
+  B is real output of Qwen2.5-1.5B-Instruct with our watermark (gamma 0.5, delta 2, temperature 0.7), given the same points as A (chosen paper, 20 minutes on Zoom, Thursday or Friday) and told to write plainly; sample 83 of \emailSamples, picked because it reads like a student wrote it (snippets/emails.json). Its slip (Tuesday, then Thursday or Friday) is the model's. A is the human email (EMAIL\_HUMAN in make\_figures.py). The side was drawn at random.}
 \end{frame}
 
 % ---- 3 ----------------------------------------------------------------
@@ -277,8 +277,8 @@
     \begin{column}{0.35\textwidth}
       \raggedright\small
       \begin{enumerate}
-        \item A secret key colours every token \gtok{green} or \rtok{red}, based on the token before it. A quarter of the vocabulary is green.
-        \item A human does not know the key, so their tokens land on green only by luck: about 1 in 4.
+        \item A secret key colours every token \gtok{green} or \rtok{red}, based on the token before it. Half the vocabulary is green.
+        \item A human does not know the key, so their tokens land on green only by luck: about 1 in 2.
         \item The AI was pushed toward green while writing, so green piles up.
       \end{enumerate}
       \vspace{0.2em}
@@ -299,7 +299,7 @@
       {\footnotesize\raggedright\quiet{Since August 2026, Anthropic watermarks Claude's text with a scheme from this family (a version of SynthID-Text).}\par}
     \end{column}
   \end{columns}
-  \note{Colours are real: the detector run on both emails with the Qwen tokenizer and our key, gamma = 0.25 (snippets/emails.tex, made by make\_figures.py). The first token's context is the end of the chat prompt.
+  \note{Colours are real: the detector run on both emails with the Qwen tokenizer and our key, gamma = 0.5, the paper's main setting (snippets/emails.tex, made by make\_figures.py). The first token's context is the end of the chat prompt.
   A (mine): \emailHumanGreen\ green of \emailHumanTokens\ tokens, z = \emailHumanZ. B (AI, delta = 2): \emailAIGreen\ of \emailAITokens, z = \emailAIZ, one-sided p-value: \emailAIOdds.
   Honest caveat if asked: detection is not guaranteed on text this short. \emailSamplesAbove\ of the \emailSamples\ AI samples exceed z = 4 (median z \emailSamplesMedian); we showed one that reads naturally and is detected. Short text is exactly Extension 1.
   Tokens are words or pieces of words: ``Kakhbod'' is four tokens. Anthropic line: from Anthropic's public statement, as given in the brief.}

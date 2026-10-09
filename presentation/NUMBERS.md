@@ -10,8 +10,8 @@ Rounding is to the precision shown on the slide.
 |---|---|---|
 | 1 | ICML 2023 | the paper (`paper/kirchenbauer23a.pdf`) |
 | 1 | October 2026 | talk date (brief) |
-| 2 | A (my email) and B (AI email) | B: Qwen2.5-1.5B-Instruct with our watermark (gamma 0.25, delta 2, temperature 0.7, top-k 0), given the same points as A, sample 44 of 64 (`presentation/snippets/emails.json`, made by `make_figures.py` `generate_emails()`); A: `EMAIL_HUMAN` in `make_figures.py`; side drawn at random |
-| 2 (note) | 64 samples | `snippets/emails.tex` (`\emailSamples`) |
+| 2 | A (my email) and B (AI email) | B: Qwen2.5-1.5B-Instruct with our watermark (gamma 0.5, delta 2, temperature 0.7, top-k 0), given the same points as A, sample 83 of 128 (`presentation/snippets/emails.json`, made by `make_figures.py` `generate_emails()`); A: `EMAIL_HUMAN` in `make_figures.py`; side drawn at random |
+| 2 (note) | 128 samples | `snippets/emails.tex` (`\emailSamples`) |
 | 3 | 26% AI text caught, 9% human text flagged | OpenAI blog, "New AI classifier for indicating AI-written text" (31 Jan 2023, updated 20 Jul 2023) |
 | 3 | January 2023, July 2023 | same OpenAI blog post |
 | 3 (note) | about one honest email in eleven | 1 / 0.09 = 11.1 |
@@ -19,11 +19,11 @@ Rounding is to the precision shown on the slide.
 | 4 | 26%, 9% (2023) | OpenAI blog, as on slide 3 |
 | 4 | 98.4% | the paper, Sec. 4.1 (z = 4, T = 200, gamma 0.5, delta 2) |
 | 4 | about 0.003% (3 in 100,000) | formula: one-sided p-value at z = 4, 1 - Phi(4) = 3.2e-5 |
-| 5 | a quarter of the vocabulary is green; a human lands on green about 1 in 4 | gamma = 0.25 |
-| 5 | A: 16 green of 55 tokens, chance gives 14 (z = 0.7, note) | `snippets/emails.tex`: detector (`core.detect`) on EMAIL_HUMAN, Qwen tokenizer, our key, gamma 0.25; chance = 0.25 x 55 = 13.75 |
-| 5 | B: 30 green of 53 tokens, chance gives 13, z = 5.3 | `snippets/emails.tex`: detector on sample 44; chance = 0.25 x 53 = 13.25 |
-| 5 | by chance: 1 in 19 million | one-sided p-value of z = 5.31 (`make_figures.py` `odds()`) |
-| 5 (note) | 44 of 64 samples above z = 4, median z 4.6 | `snippets/emails.tex` (`\emailSamplesAbove`, `\emailSamplesMedian`), from `snippets/emails.json` |
+| 5 | half the vocabulary is green; a human lands on green about 1 in 2 | gamma = 0.5 |
+| 5 | A: 32 green of 55 tokens, chance gives 28 (z = 1.2, note) | `snippets/emails.tex`: detector (`core.detect`) on EMAIL_HUMAN, Qwen tokenizer, our key, gamma 0.5; chance = 0.5 x 55 = 27.5 |
+| 5 | B: 50 green of 62 tokens, chance gives 31, z = 4.8 | `snippets/emails.tex`: detector on sample 83; chance = 0.5 x 62 = 31 |
+| 5 | by chance: 1 in 1.4 million | one-sided p-value of z = 4.83 (`make_figures.py` `odds()`) |
+| 5 (note) | 76 of 128 samples above z = 4, median z 4.3 | `snippets/emails.tex` (`\emailSamplesAbove`, `\emailSamplesMedian`), from `snippets/emails.json` |
 | 5 | August 2026 (Anthropic watermarks Claude) | the brief (Anthropic's public statement); not checked against a primary source here |
 | 6 | 50,265 tokens | OPT vocabulary size, `results/summary/greenlist_equivalence.txt` (V = 50265) |
 | 6 (note) | 15,485,863; h = 1 | `core.py` / official `watermark_processor.py` (simple_1 seeding), RESULTS.md Deviations |

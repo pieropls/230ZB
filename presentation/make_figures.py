@@ -507,7 +507,7 @@ EMAIL_HUMAN = ("Hi Professor Kakhbod,\n\n"
                "Romain, Elias and I settled on the LLM watermarking paper for our fall project. Would you have 20 minutes "
                "on Zoom this week to go over our plan? We're flexible on Thursday and Friday.\n\n"
                "Thanks,\nPiero")                                              # the human email: replace with your own text
-EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 64, 44, 2, 0.25, 2.0   # sample 44: chosen with Piero
+EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 128, 83, 3, 0.5, 2.0   # sample 83: chosen with Piero
 EMAIL_CACHE = os.path.join(SNIP, "emails.json")
 
 
@@ -546,7 +546,7 @@ def plain_text(text):
 
 
 def generate_emails():
-    """Qwen2.5-1.5B-Instruct writes EMAIL_N emails with the watermark (gamma 0.25, delta 2, temperature 0.7, top_k 0).
+    """Qwen2.5-1.5B-Instruct writes EMAIL_N emails with the watermark (gamma 0.5, delta 2, temperature 0.7, top_k 0).
     Run once; the token ids are cached in snippets/emails.json."""
     import torch
     from transformers import GenerationConfig, LogitsProcessorList
@@ -577,12 +577,14 @@ def generate_emails():
 def odds(z):
     """'1 in N' for the one-sided p-value of z."""
     n = 1 / (0.5 * math.erfc(z / math.sqrt(2)))
-    return f"1 in {n / 1e6:.0f} million" if n >= 1e6 else f"1 in {n:,.0f}"
+    if n >= 1e7:
+        return f"1 in {n / 1e6:.0f} million"
+    return f"1 in {n / 1e6:.1f} million" if n >= 1e6 else f"1 in {n:,.0f}"
 
 
 def emails():
     """My email (EMAIL_HUMAN) and watermarked sample EMAIL_PICK, scored by the detector with the Qwen tokenizer and our
-    key (gamma 0.25); the first token's context is the last token of the chat prompt, for both."""
+    key (EMAIL_GAMMA); the first token's context is the last token of the chat prompt, for both."""
     from transformers import AutoTokenizer
     import core as C
     import params as P
