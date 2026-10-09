@@ -497,15 +497,17 @@ def instruct_entropy():
 
 
 # ---------------------------------------------------------------------------------------------- opening emails
-EMAIL_PROMPT = ("Write a short, casual email from Piero, an MFE student at UC Berkeley, to Professor Ali Kakhbod. Piero wants a "
-                "20-minute Zoom call this week with his teammates Romain and Elias to go over their fall project on watermarking "
-                "language models. Write it the way a busy student would: three short sentences, friendly and direct, no subject "
-                "line, no 'I hope this email finds you well', no placeholders. Start with 'Hi Professor Kakhbod,' and sign 'Thanks, Piero'.")
+EMAIL_PROMPT = ("Write a short email from Piero, an MFE student at UC Berkeley, to his professor, Ali Kakhbod. "
+                "Points to cover: Piero and his teammates Romain and Elias chose the LLM watermarking paper for their fall project; "
+                "they would like 20 minutes on Zoom this week to go over their plan; Thursday or Friday works for them. "
+                "Write it like a real student writing quickly: plain and polite, two or three sentences, no exclamation marks, "
+                "no subject line, no 'I hope this email finds you well', no 'looking forward'. "
+                "Start with 'Hi Professor Kakhbod,' and end with 'Thanks,' and 'Piero' on separate lines.")
 EMAIL_HUMAN = ("Hi Professor Kakhbod,\n\n"
                "Romain, Elias and I settled on the LLM watermarking paper for our fall project. Would you have 20 minutes "
                "on Zoom this week to go over our plan? We're flexible on Thursday and Friday.\n\n"
                "Thanks,\nPiero")                                              # the human email: replace with your own text
-EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 32, 4, 1, 0.25, 2.0   # sample 4 reads most like a student
+EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 64, 44, 2, 0.25, 2.0   # sample 44: chosen with Piero
 EMAIL_CACHE = os.path.join(SNIP, "emails.json")
 
 
@@ -552,18 +554,19 @@ def generate_emails():
     import params as P
     model, tok = C.load_lm("qwen-it")
     V, eos, pids = C.vocab_size(tok), C.eos_ids(model, tok), C.chat_ids(tok, EMAIL_PROMPT)
-    ids = torch.tensor([pids] * EMAIL_N)
     proc = C.KGW(V, EMAIL_GAMMA, EMAIL_DELTA, tau=P.TEMP, log=False)
-    cfg = GenerationConfig(max_new_tokens=140, do_sample=True, temperature=P.TEMP, top_k=0, top_p=1.0,
+    cfg = GenerationConfig(max_new_tokens=120, do_sample=True, temperature=P.TEMP, top_k=0, top_p=1.0,
                            eos_token_id=eos, pad_token_id=tok.pad_token_id)
     torch.manual_seed(EMAIL_SEED)
-    with torch.no_grad():
-        out = model.generate(input_ids=ids.to(C.DEVICE), attention_mask=torch.ones_like(ids).to(C.DEVICE),
-                             generation_config=cfg, logits_processor=LogitsProcessorList([proc]))
     rows = []
-    for seq in out[:, len(pids):].cpu().tolist():
-        T = next((t for t, x in enumerate(seq) if x in eos), len(seq))
-        rows.append(dict(ids=seq[:T], ended=T < len(seq)))
+    for _ in range(EMAIL_N // 32):                                     # batches of 32 (memory)
+        ids = torch.tensor([pids] * 32)
+        with torch.no_grad():
+            out = model.generate(input_ids=ids.to(C.DEVICE), attention_mask=torch.ones_like(ids).to(C.DEVICE),
+                                 generation_config=cfg, logits_processor=LogitsProcessorList([proc]))
+        for seq in out[:, len(pids):].cpu().tolist():
+            T = next((t for t, x in enumerate(seq) if x in eos), len(seq))
+            rows.append(dict(ids=seq[:T], ended=T < len(seq)))
     data = dict(model=P.MODELS["qwen-it"], prompt=EMAIL_PROMPT, prompt_ids=pids, gamma=EMAIL_GAMMA, delta=EMAIL_DELTA,
                 temperature=P.TEMP, top_k=0, seed=EMAIL_SEED, rows=rows)
     with open(EMAIL_CACHE, "w") as fh:
