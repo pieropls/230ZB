@@ -163,7 +163,7 @@
 \date{October 2026}
 
 \begin{document}
-\input{snippets/hook.tex}
+\input{snippets/emails.tex}
 
 {
 \setbeamercolor{background canvas}{bg=calblue}
@@ -179,46 +179,36 @@
 % =====================================================================
 
 % ---- 2 ----------------------------------------------------------------
-\begin{frame}{Who wrote this?}
-  \quiet{A news article (C4) ends with:} \hookPrompt\ \ldots
-  \vspace{0.5em}
+\begin{frame}{Two emails to Professor Kakhbod}
+  To book a Zoom meeting about our fall project, I emailed Professor Kakhbod. Here are two versions.
+  \vspace{0.2em}
 
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.485\textwidth}
-      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=9pt,right=9pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=hook]
+    \begin{column}{0.49\textwidth}
+      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=emails]
         \key{A}\par\vspace{0.2em}
-        {\small\raggedright\alt<2>{\hookHumanColor}{\hookHumanPlain}\par}
+        {\footnotesize\raggedright\emailHumanPlain\par}
       \end{tcolorbox}
-      \uncover<2>{\small green tokens: found \hookHumanGreen, expected by chance \hookHumanExpected}
     \end{column}
-    \begin{column}{0.485\textwidth}
-      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=9pt,right=9pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=hook]
+    \begin{column}{0.49\textwidth}
+      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=3pt,after skip=3pt,equal height group=emails]
         \key{B}\par\vspace{0.2em}
-        {\small\raggedright\alt<2>{\hookModelColor}{\hookModelPlain}\par}
+        {\footnotesize\raggedright\emailAIPlain\par}
       \end{tcolorbox}
-      \uncover<2>{\small green tokens: found \hookModelGreen, expected by chance \hookModelExpected}
     \end{column}
   \end{columns}
-  \vspace{0.5em}
+  \vspace{0.3em}
 
-  \only<1>{Same news article, two continuations. One is the journalist's, one is a 1.3-billion-parameter model's. Which is which?}%
-  \only<2>{%
-    \begin{goldbox}
-      The model's text carries a hidden signal: far more green tokens than chance allows.
-    \end{goldbox}
-    \quiet{\footnotesize Since August 2026, Anthropic watermarks Claude's text with a scheme from this family (a version of SynthID-Text).}}
-  \note{A is the journalist (C4 human baseline), B is OPT-1.3B (prompt 177 of results/prompts\_c4.jsonl); the side was drawn at random.
-  Setting: gamma = 0.25, delta = 2, the paper's Figure 1 setting. First 40 tokens of each continuation.
-  Counts from the stored green flags of these two excerpts (snippets/hook.tex, made by make\_figures.py from results/raw/gen/opt-news-m-d2-g0.25.jsonl and results/raw/human/c4.jsonl):
-  B has \hookModelGreen\ green of \hookModelTokens\ (expected \hookModelExpected, z = \hookModelZ); A has \hookHumanGreen\ of \hookHumanTokens\ (z = \hookHumanZ).
-  Same picture as the paper's Figure 1: 36 tokens, 9 green expected by chance, 28 found, z = 7.4 (p = 6e-14).
-  Anthropic line: from Anthropic's public statement, as given in the brief.}
+  {\centering\large One of them I wrote with AI. \key{Which one?}\par}
+  \note{Ask for a show of hands: A or B? Then let the room enjoy ``[insert topic]''.
+  B is real output of Qwen2.5-1.5B-Instruct with our watermark (gamma 0.25, delta 2, temperature 0.7), asked for a short email to Professor Kakhbod about a Zoom meeting; sample 11 of \emailSamples, picked because it is funny and complete (snippets/emails.json). A is the human email (EMAIL\_HUMAN in make\_figures.py). The side was drawn at random.
+  Point to make: here the AI gave itself away, but a careful user would delete the placeholders. Then what?}
 \end{frame}
 
 % ---- 3 ----------------------------------------------------------------
-\begin{frame}{Spotting AI text after the fact}
+\begin{frame}{How would Professor Kakhbod catch me?}
   \framesubtitle{The paper}
-  The obvious approach: train a \key{classifier} on human vs AI text. Three problems:
+  The naive approach: train a \key{classifier} on human vs AI text. Three problems:
   \begin{itemize}
     \item no guarantee and no known error rate;
     \item it degrades as models improve;
@@ -231,16 +221,14 @@
      & AI text caught & human text flagged as AI \\
     \midrule
     OpenAI AI Text Classifier (January 2023) & 26\% & 9\% \\
-    Watermark at the paper's threshold, $z = 4$ & 98.4\% & about 0.003\% (3 in 100{,}000) \\
     \bottomrule
   \end{tabular}
   \end{center}
   \vspace{0.6em}
   \quiet{\small OpenAI withdrew its classifier in July 2023 for its low rate of accuracy.}
   \note{OpenAI blog, ``New AI classifier for indicating AI-written text'' (31 Jan 2023, updated 20 Jul 2023): 26\% true positives, 9\% false positives on their challenge set; withdrawn for low accuracy.
-  Watermark: 98.4\% is the paper's detection rate at z = 4 on 200-token texts (Sec. 4.1, gamma 0.5, delta 2).
-  0.003\% is the one-sided p-value at z = 4 (3.2e-5): a false-alarm rate fixed by the test, not estimated from a classifier.
-  Point: the watermark gives a guarantee on false alarms, which the classifier never had.}
+  Talking point: with 9\% false positives, Professor Kakhbod would wrongly accuse about one honest email in eleven.
+  The paper's numbers come on the next slide.}
 \end{frame}
 
 % ---- 4 ----------------------------------------------------------------
@@ -252,7 +240,7 @@
       \begin{goldbox}
         \raggedright A \key{watermark} is ``a hidden pattern in text that is imperceptible to humans, while making the text algorithmically identifiable as synthetic.''
       \end{goldbox}
-      \vspace{0.6em}
+      \vspace{0.4em}
       The model owner adds it while the model writes. Anyone holding the key can check. Nothing is retrained.
     \end{column}
     \begin{column}{0.51\textwidth}
@@ -266,12 +254,59 @@
       \end{enumerate}
     \end{column}
   \end{columns}
-  \note{Definition quoted from the paper's introduction.
-  The five properties are the paper's list (Sec. 1): the next slides show how one simple rule delivers all five.
-  Key idea: the owner of the model controls sampling, so it can embed the pattern at generation time.}
+  \vspace{0.7em}
+  \begin{center}
+  \small
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+     & AI text caught & human text flagged as AI \\
+    \midrule
+    OpenAI AI Text Classifier (2023) & 26\% & 9\% \\
+    \key{Watermark}, at the paper's threshold $z = 4$ & \key{98.4\%} & \key{about 0.003\%} (3 in 100{,}000) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \note{Definition quoted from the paper's introduction; the five properties are the paper's list (Sec. 1).
+  Table: OpenAI blog (slide 3). Watermark: 98.4\% is the paper's detection rate at z = 4 on 200-token texts (Sec. 4.1, gamma 0.5, delta 2); 0.003\% is the one-sided p-value at z = 4 (3.2e-5), a false-alarm rate fixed by the test, not estimated.
+  The difference: the watermark is put in on purpose while the model writes, so the test knows exactly what to look for.}
 \end{frame}
 
 % ---- 5 ----------------------------------------------------------------
+\begin{frame}{Back to my emails, in colour}
+  \framesubtitle{The paper}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.35\textwidth}
+      \raggedright\small
+      \begin{enumerate}
+        \item A secret key colours every token \gtok{green} or \rtok{red}, based on the token before it. A quarter of the vocabulary is green.
+        \item I cannot see the colours: about 1 in 4 of my tokens is green.
+        \item The AI was pushed toward green as it wrote.
+      \end{enumerate}
+      \vspace{0.2em}
+      \begin{goldbox}
+        \raggedright B: \emailAIGreen\ green where chance gives \emailAIExpected, $z = \emailAIZ$. By chance: \emailAIOdds.
+      \end{goldbox}
+      \vspace{0.2em}
+      {\scriptsize\quiet{Since August 2026, Anthropic watermarks Claude's text with a scheme from this family (a version of SynthID-Text).}\par}
+    \end{column}
+    \begin{column}{0.62\textwidth}
+      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=7pt,right=7pt,top=3pt,bottom=3pt,before skip=0pt,after skip=4pt]
+        {\footnotesize\key{A}\quad green tokens: \emailHumanGreen\ of \emailHumanTokens, chance gives \emailHumanExpected\hfill{\scriptsize\quiet{$\hookleftarrow$ = line break, a token too}}}\par\vspace{0.15em}
+        {\scriptsize\raggedright\emailHumanColor\par}
+      \end{tcolorbox}
+      \begin{tcolorbox}[enhanced,sharp corners,boxrule=0.4pt,colframe=muted!35,colback=white,borderline west={3pt}{0pt}{calblue},left=7pt,right=7pt,top=3pt,bottom=3pt,before skip=0pt,after skip=3pt]
+        {\footnotesize\key{B}\quad green tokens: \emailAIGreen\ of \emailAITokens, chance gives \emailAIExpected}\par\vspace{0.15em}
+        {\scriptsize\raggedright\emailAIColor\par}
+      \end{tcolorbox}
+    \end{column}
+  \end{columns}
+  \note{Colours are real: the detector run on both emails with the Qwen tokenizer and our key, gamma = 0.25 (snippets/emails.tex, made by make\_figures.py). The first token's context is the end of the chat prompt.
+  A (mine): \emailHumanGreen\ green of \emailHumanTokens\ tokens, z = \emailHumanZ. B (AI, delta = 2): \emailAIGreen\ of \emailAITokens, z = \emailAIZ, one-sided p-value: \emailAIOdds.
+  Across all \emailSamples\ AI samples, \emailSamplesAbove\ exceed z = 4 (median z \emailSamplesMedian): this one is typical, not cherry-picked for its z.
+  Tokens are words or pieces of words: ``Kakhbod'' is four tokens. Anthropic line: from Anthropic's public statement, as given in the brief.}
+\end{frame}
+
+% ---- 6 ----------------------------------------------------------------
 \begin{frame}{Algorithm 1: ban half the vocabulary}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 1}
   \begin{center}
@@ -289,72 +324,95 @@
     \node[font=\scriptsize, text=ink, above=1.6mm of c] {the watermark acts here};
   \end{tikzpicture}
   \end{center}
-  \vspace{-0.2em}
-  \begin{bluebox}
-    \key{Algorithm 1}, at every step $t$:
-    \begin{enumerate}
-      \item run the model to get the probabilities $p^{(t)}$;
-      \item hash the previous token $s^{(t-1)}$ with a secret key into a seed for a random number generator;
-      \item with that seed, split the vocabulary at random into a \textcolor{good}{\textbf{green list}} and a \textcolor{signal}{\textbf{red list}} of equal size;
-      \item sample $s^{(t)}$ from the green list only.
-    \end{enumerate}
-  \end{bluebox}
-  The previous token fixes the split, so anyone with the key can rebuild every list from the text alone, without the model.
-  \note{OPT-1.3B vocabulary: 50,265 tokens (len(tokenizer.get\_vocab())).
-  In the code: seed = 15,485,863 x previous token id; green list = first gamma N entries of a seeded random permutation of the vocabulary; context width h = 1.
-  The hard rule is Algorithm 1 with gamma = 0.5: red tokens get probability zero.}
-\end{frame}
-
-% ---- 6 ----------------------------------------------------------------
-\begin{frame}{Detection is a count against chance}
-  \framesubtitle{The paper \textperiodcentered\ Algorithm 1}
-  \begin{itemize}
-    \item $H_0$: the text was written without knowledge of the lists (a human, or another model).
-    \item Under $H_0$ each token is green with probability $1/2$. With $T$ the number of tokens tested and $|s|_G$ the number of green tokens, $|s|_G \sim \mathrm{Binomial}(T, 1/2)$.
-    \item $z = 2\,(|s|_G - T/2)/\sqrt{T}$. Flag the text if $z > 4$: one-sided p-value $3.2\times10^{-5}$.
-  \end{itemize}
-  \vspace{0.3em}
-  \begin{goldbox}
-    An all-green text has $z = \sqrt{T}$: \hi{16 tokens} already reach $z = 4$.\par\vspace{0.3em}
-    An attacker who knows the lists and edits 200 of 1{,}000 tokens creates at most 400 red tokens (each edit also changes the next token's list).\par The text still scores $z = 2\,(600-500)/\sqrt{1000} \approx 6.3$.
-  \end{goldbox}
-  \note{Detection needs only the text and the key: no model, no API (property 1).
-  p-value: 1 - Phi(4) = 3.2e-5 (normal approximation to the binomial).
-  16 green tokens give z = sqrt(16) = 4 exactly; one more green token passes the strict threshold.
-  Attack arithmetic is the paper's Sec. 2 example: 1,000 tokens, 200 edits, at most 400 red, so 600 green: z = 200/sqrt(1000) = 6.3.
-  False alarms are controlled by design: the benchmark does not depend on the model or the text. A high count means ``this watermark is here''; a low count proves nothing.}
+  \vspace{-0.7em}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{bluebox}
+        \small\raggedright
+        \key{Algorithm 1}, at every step $t$:
+        \begin{enumerate}
+          \item run the model: probabilities $p^{(t)}$;
+          \item hash the previous token $s^{(t-1)}$ with a secret key into a seed;
+          \item with that seed, split the vocabulary into a \textcolor{good}{\textbf{green}} and a \textcolor{signal}{\textbf{red}} half;
+          \item ban red: sample $s^{(t)}$ from the green half.
+        \end{enumerate}
+      \end{bluebox}
+      {\small\raggedright The previous token fixes the split: with the key, anyone can rebuild every list from the text alone, without the model.\par}
+    \end{column}
+    \begin{column}{2.75in}
+      \vspace{-0.3em}
+      \safegraphic[width=\linewidth]{figures/ban_dinner.pdf}
+    \end{column}
+  \end{columns}
+  \note{Figure: illustrative probabilities (six equally good dishes, three green); under the ban each green dish goes from 1/6 to 1/3 and the red ones to 0. Plenty of good options, so banning half costs nothing here.
+  OPT-1.3B vocabulary: 50,265 tokens. In the code: seed = 15,485,863 x previous token id; green list = first gamma N entries of a seeded random permutation of the vocabulary; context width h = 1.
+  Algorithm 1 is the gamma = 0.5 case with red tokens at probability zero.}
 \end{frame}
 
 % ---- 7 ----------------------------------------------------------------
-\demoframe{Live: the hard red list}{demo_algo1.png}
-
-% ---- 8 ----------------------------------------------------------------
-\begin{frame}{Where the hard rule breaks}
+\begin{frame}{Detection is a count against chance}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 1}
-  \key{Low-entropy text}: the next token is almost forced.
-  \begin{itemize}
-    \item After ``Barack'' the model puts about 99\% on ``Obama''. If ``Obama'' is red, the rule forces something wrong.
-    \item Same for code, \texttt{for(i=0;i<n;i++) sum+=array[i]}, and for memorised quotes.
-  \end{itemize}
-  \vspace{0.3em}
-  \begin{signalbox}
-    \warn{Two problems}
-    \begin{enumerate}
-      \item Humans and models write the same thing there, so no test can tell them apart.
-      \item Forcing a different token wrecks the text.
-    \end{enumerate}
-  \end{signalbox}
-  \vspace{0.3em}
-  So the authors replace the ban by a push.
-  \note{The 99\% is illustrative (the paper's own Barack Obama example; the same number is used in the push example two slides later).
-  Low entropy means a spiked next-token distribution: the hard list then forces a low-probability token half of the time.
-  Both problems are from the paper's Sec. 2 and 3: detectability and quality.}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \raggedright
+      \key{$H_0$}: the text was written without knowing the lists (a human, or another model). Then each token is green with probability $1/2$:
+      \[ |s|_G \sim \mathrm{Binomial}(T, 1/2), \qquad z = \frac{2\,(|s|_G - T/2)}{\sqrt{T}} \]
+      $|s|_G$: green tokens among the $T$ tested. Flag the text if $z > 4$: one-sided p-value $3.2\times10^{-5}$.
+      \vspace{0.3em}
+      \begin{goldbox}
+        \raggedright
+        All green: $z = \sqrt{T}$, so \hi{16 tokens} already reach $z = 4$.\par\vspace{0.2em}
+        Edit 200 of 1{,}000 tokens: at most 400 red, still $z \approx 6.3$.
+      \end{goldbox}
+    \end{column}
+    \begin{column}{2.75in}
+      \safegraphic[width=\linewidth]{figures/z_null.pdf}
+    \end{column}
+  \end{columns}
+  \note{Figure: the z-scores of our 1,000 human texts (C4, gamma 0.5, our key, results/raw/human/c4) against the standard normal curve of chance: mean -0.20, sd 1.04, none above 4. The threshold z = 4 leaves a tail of 3.2e-5 (1 - Phi(4)).
+  Detection needs only the text and the key: no model, no API (property 1).
+  16 green tokens give z = 4 exactly; one more passes the strict threshold.
+  Attack arithmetic is the paper's Sec. 2 example: each edit can also turn the next token red, so 200 edits make at most 400 red tokens; 600 green of 1,000 gives z = 200/sqrt(1000) = 6.3.
+  A high count means ``this watermark is here''; a low count proves nothing.}
 \end{frame}
 
+% ---- 8 ----------------------------------------------------------------
+\demoframe{Live: the hard red list}{demo_algo1.png}
+
 % ---- 9 ----------------------------------------------------------------
-\demoframe{Live: Barack $\to$ Obama}{demo_barack.png}
+\begin{frame}{Where the hard rule breaks}
+  \framesubtitle{The paper \textperiodcentered\ Algorithm 1}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \raggedright
+      \key{Low-entropy text}: the next token is almost forced.
+      \begin{itemize}
+        \item After ``Barack'' the model puts about 99\% on ``Obama''. If ``Obama'' is red, the ban forces ``Hussein'' or ``and''.
+        \item Same for code, \texttt{for(i=0;i<n;i++)}, and for memorised quotes.
+      \end{itemize}
+      \vspace{0.2em}
+      \begin{signalbox}
+        \raggedright
+        \warn{Two problems}
+        \begin{enumerate}
+          \item Humans and models write the same thing there, so no test can tell them apart.
+          \item Forcing a different token wrecks the text.
+        \end{enumerate}
+      \end{signalbox}
+      So the authors replace the ban by a push.
+    \end{column}
+    \begin{column}{2.75in}
+      \safegraphic[width=\linewidth]{figures/ban_barack.pdf}
+    \end{column}
+  \end{columns}
+  \note{Figure: same illustrative inputs as the push example on slide 12 (Obama 0.990, red): the ban sends Obama to 0 and gives Hussein 0.571 and and 0.429. Compare slide 6: with many good options the ban was harmless; with one, it breaks the sentence.
+  Low entropy means a spiked next-token distribution. Both problems are from the paper's Sec. 2 and 3: detectability and quality.}
+\end{frame}
 
 % ---- 10 ---------------------------------------------------------------
+\demoframe{Live: Barack $\to$ Obama}{demo_barack.png}
+
+% ---- 11 ---------------------------------------------------------------
 \begin{frame}{Algorithm 2: from a ban to a push}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 2}
   \tightmath
@@ -383,7 +441,7 @@
   In the paper's code delta is added before the temperature 0.7 (we checked the same order in transformers; backup B7).}
 \end{frame}
 
-% ---- 11 ---------------------------------------------------------------
+% ---- 12 ---------------------------------------------------------------
 \begin{frame}{The push only acts where the model has a choice}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 2}
   \vspace{0.2em}
@@ -391,13 +449,13 @@
   \vspace{0.3em}
 
   Confident model: the push changes almost nothing, so quality is kept. Several good options: the push decides, so green tokens pile up.
-  \note{Illustrative numbers, not measured: the model probabilities are made up, the watermarked ones are computed with the slide-10 formula at delta = 2 (make\_figures.py, push\_example).
+  \note{Illustrative numbers, not measured: the model probabilities are made up, the watermarked ones are computed with the slide-11 formula at delta = 2 (make\_figures.py, push\_example). Same inputs as the ban figures on slides 6 and 9.
   Left: Obama is red, 0.990 to 0.948; the chance of a green token goes from 0.7\% to 5\%.
   Right: six equally good words, three green: each green word 0.167 to 0.294, each red 0.167 to 0.040; green chance 50\% to 88\%.
   This is why the soft watermark keeps quality and still leaves a signal where there is choice.}
 \end{frame}
 
-% ---- 12 ---------------------------------------------------------------
+% ---- 13 ---------------------------------------------------------------
 \begin{frame}{Detection: the same count, for any $\gamma$}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 2}
   \tightmath
@@ -421,7 +479,7 @@
   The detector never needs delta: a deployer can change the strength by context without changing detection.}
 \end{frame}
 
-% ---- 13 ---------------------------------------------------------------
+% ---- 14 ---------------------------------------------------------------
 \begin{frame}{Theorem 4.2: how many green tokens to expect}
   \framesubtitle{The paper \textperiodcentered\ Algorithm 2}
   \tightmath
@@ -463,10 +521,10 @@
   Definition of spike entropy and the variance bound: backup B1.}
 \end{frame}
 
-% ---- 14 ---------------------------------------------------------------
+% ---- 15 ---------------------------------------------------------------
 \demoframe{Live: the soft watermark}{demo_algo2.png}
 
-% ---- 15 ---------------------------------------------------------------
+% ---- 16 ---------------------------------------------------------------
 \begin{frame}{What the soft watermark leaves open}
   \framesubtitle{The paper}
   \vspace{0.4em}
@@ -492,7 +550,7 @@
 %  REPRODUCTION
 % =====================================================================
 
-% ---- 16 ---------------------------------------------------------------
+% ---- 17 ---------------------------------------------------------------
 \begin{frame}{Same experiments, our own code}
   \framesubtitle{Reproduction}
   {\small
@@ -519,7 +577,7 @@
   95\% intervals everywhere: Wilson for rates, bootstrap for medians.}
 \end{frame}
 
-% ---- 17 ---------------------------------------------------------------
+% ---- 18 ---------------------------------------------------------------
 \begin{frame}{The headline reproduces}
   \framesubtitle{Reproduction}
   \begin{columns}[T,onlytextwidth]
@@ -552,7 +610,7 @@
   Histogram: same loaders as the notebook; no-watermark texts are delta = 0 generations (500).}
 \end{frame}
 
-% ---- 18 ---------------------------------------------------------------
+% ---- 19 ---------------------------------------------------------------
 \begin{frame}{Error rates and the paper's attack reproduce}
   \framesubtitle{Reproduction}
   \begin{columns}[T,onlytextwidth]
@@ -571,7 +629,7 @@
   The multi-word variant is weaker (texts grow): backup B8.}
 \end{frame}
 
-% ---- 19 ---------------------------------------------------------------
+% ---- 20 ---------------------------------------------------------------
 \begin{frame}{What we could not reproduce}
   \framesubtitle{Reproduction}
   \begin{signalbox}
@@ -592,7 +650,7 @@
 %  EXTENSIONS
 % =====================================================================
 
-% ---- 20 ---------------------------------------------------------------
+% ---- 21 ---------------------------------------------------------------
 \begin{frame}{Free vs constrained text}
   \framesubtitle{Extension 1 \textperiodcentered\ Entropy decides}
   \begin{columns}[T,onlytextwidth]
@@ -618,7 +676,7 @@
   Same picture for Qwen base and Instruct: backup B13.}
 \end{frame}
 
-% ---- 21 ---------------------------------------------------------------
+% ---- 22 ---------------------------------------------------------------
 \begin{frame}{The rewrite attack}
   \framesubtitle{Extension 2 \textperiodcentered\ A 2026 attacker}
   \begin{columns}[T,onlytextwidth]
@@ -655,7 +713,7 @@
   Intuition: swapped texts still score above human texts, so a lower threshold catches them; rewritten texts overlap with human texts, so no threshold separates them well.}
 \end{frame}
 
-% ---- 22 ---------------------------------------------------------------
+% ---- 23 ---------------------------------------------------------------
 \begin{frame}{A watermarked passage inside a human text}
   \framesubtitle{Extension 3 \textperiodcentered\ Copy-paste}
   \begin{columns}[T,onlytextwidth]
@@ -688,7 +746,7 @@
   Both thresholds are calibrated on 1,000 human-only 600-token documents for 1\% false positives (whole text z > 2.20, WinMax > 4.02, ext2b\_thresholds.json), which accounts for the many windows tested.}
 \end{frame}
 
-% ---- 23 ---------------------------------------------------------------
+% ---- 24 ---------------------------------------------------------------
 \begin{frame}{When the model stops writing}
   \framesubtitle{Extension 4 \textperiodcentered\ A side effect of the key}
   \begin{columns}[T,onlytextwidth]
@@ -715,7 +773,7 @@
 %  CLOSE
 % =====================================================================
 
-% ---- 24 ---------------------------------------------------------------
+% ---- 25 ---------------------------------------------------------------
 \begin{frame}{What we take away}
   \framesubtitle{Takeaways}
   \begin{itemize}
@@ -730,7 +788,7 @@
   \end{goldbox}
   \vspace{0.2em}
   \quiet{\small Next step (Elias): use the detector as a filter for sentiment data, and measure how much of a manipulated signal it restores.}
-  \note{Every number here is on an earlier slide: 17 (98.6\%), 18 (11 of 12), 16 (green lists), 20 to 23 (extensions).
+  \note{Every number here is on an earlier slide: 18 (98.6\%), 19 (11 of 12), 17 (green lists), 21 to 24 (extensions).
   Closing the loop with the opening slide: the same family of watermark now ships in a commercial model, and its own documentation states the entropy limit we measured.
   Why the next step matters in finance: sentiment signals are read from text, part of which is machine-written; each of the three limits becomes a loss of signal quality.
   Backup starts on the next slide, with a clickable index.}
@@ -892,7 +950,7 @@
   False positive rate at $z = 4$: 0 [0, 0.004] on 1{,}000 human texts in every row. On 500 unwatermarked model texts: 0.002 (one text, repetitive; B11).\par
   \quiet{\scriptsize Verdict: consistent = paper inside our interval; borderline = outside, but the paper's own interval overlaps ours; different = no overlap.}
   \note{Source: results/summary/table8.csv and RESULTS.md Table 8. The paper's counts are about 500 per row; ours 100 to 497.
-  Only one real discrepancy: multinomial delta 1, gamma 0.5 (slide 19).}
+  Only one real discrepancy: multinomial delta 1, gamma 0.5 (slide 20).}
 \end{frame}
 
 % ---- B6 ---------------------------------------------------------------

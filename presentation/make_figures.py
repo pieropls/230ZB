@@ -7,6 +7,7 @@ snippets/hook.tex. No statistic is recomputed: every plotted value is a column o
 illustrative push example (computed from the watermark formula) and the hook counts (stored green flags).
 """
 import csv
+import json
 import math
 import os
 import sys
@@ -53,7 +54,7 @@ def err(v, lo, hi):
 
 def save(fig, name):
     os.makedirs(FIG, exist_ok=True)
-    fig.savefig(os.path.join(FIG, name), bbox_inches=None)
+    fig.savefig(os.path.join(FIG, name), bbox_inches=None, metadata={"CreationDate": None})   # deterministic bytes
     plt.close(fig)
     print("wrote figures/" + name)
 
@@ -62,12 +63,55 @@ def paper_marker(ax, x, y, m, label=None):
     ax.plot([x], [y], m, ms=5.5, mfc="none", mec="black", mew=0.9, ls="none", label=label, zorder=5)
 
 
-# ---------------------------------------------------------------------------------------------- push example
+# ---------------------------------------------------------------------------------------------- ban and push examples
+# Illustrative inputs (not measured): next-word probabilities and colours after two contexts, used by the hard rule
+# (Algorithm 1, ban_example) and by the soft watermark (Algorithm 2, push_example).
+EXAMPLES = {
+    "barack": ("After \"Barack\"", [("Obama", 0.990, False), ("Hussein", 0.004, True), ("and", 0.003, True), ("was", 0.003, False)]),
+    "dinner": ("After \"For dinner I had\"", [(w, 1 / 6, True) for w in ("pizza", "rice", "salad")]
+               + [(w, 1 / 6, False) for w in ("pasta", "soup", "chicken")]),
+}
+
+
+def ban_example(key):
+    """Algorithm 1 on an illustrative context: red words get probability 0, green words share the model's mass."""
+    title, words = EXAMPLES[key]
+    pg = sum(p for _, p, g in words if g)
+    new = [p / pg if g else 0.0 for _, p, g in words]
+    n = len(words)
+    xmax = 1.0 if key == "barack" else 0.4
+    fig, ax = plt.subplots(figsize=(COL, 1.95), gridspec_kw=dict(left=0.21, right=0.97, top=0.75, bottom=0.25))
+    y = np.arange(n)[::-1]
+    for yi, (w, p, g), q in zip(y, words, new):
+        ax.barh(yi + 0.17, p, height=0.22, color=MUTED, alpha=0.55, lw=0)
+        if g:
+            ax.barh(yi - 0.13, q, height=0.34, color=GOOD, lw=0)
+            ax.text(max(p, q), yi, f"  {p:.3f} → {q:.3f}", va="center", fontsize=7.5)
+        elif p > xmax / 2:                                             # long bar: label under it, right-aligned
+            ax.text(p, yi - 0.17, f"{p:.3f} → 0, banned", ha="right", va="center", fontsize=7.5, color=SIGNAL)
+        else:
+            ax.text(p, yi, f"  {p:.3f} → 0, banned", va="center", fontsize=7.5, color=SIGNAL)
+    ax.set_yticks(y)
+    ax.set_yticklabels([w for w, _, _ in words])
+    for lab, (_, _, g) in zip(ax.get_yticklabels(), words):
+        lab.set_color(GOOD if g else SIGNAL)
+    ax.tick_params(axis="y", length=0)
+    ax.set_xlim(0, xmax * 1.6)
+    ax.set_xticks([0, xmax / 2, xmax])
+    ax.set_title(title, pad=15)
+    ax.text(0.0, 1.04, f"chance of a green token: {pg:.1%} → 100%".replace(".0%", "%"), transform=ax.transAxes,
+            ha="left", va="bottom", fontsize=7.5, color=GOOD)
+    h1 = plt.Rectangle((0, 0), 1, 1, color=MUTED, alpha=0.55)
+    h2 = plt.Rectangle((0, 0), 1, 1, color=GOOD)
+    fig.legend([h1, h2], ["model alone", "with Algorithm 1"], loc="lower center", ncol=2,
+               fontsize=7, handlelength=1.0, borderaxespad=0.1, columnspacing=1.2)
+    save(fig, f"ban_{key}.pdf")
+
+
 def push_example():
-    """Illustrative: the model's probabilities and the watermarked ones (delta = 2) after two contexts."""
+    """Illustrative: the model's probabilities and the watermarked ones (delta = 2) after the two contexts."""
     a = math.exp(2.0)
-    panels = [("After \"Barack\"", [("Obama", 0.990, False), ("Hussein", 0.004, True), ("and", 0.003, True), ("was", 0.003, False)]),
-              ("After \"For dinner I had\"", [(w, 1 / 6, True) for w in ("pizza", "rice", "salad")] + [(w, 1 / 6, False) for w in ("pasta", "soup", "chicken")])]
+    panels = [EXAMPLES["barack"], EXAMPLES["dinner"]]
     fig, axes = plt.subplots(1, 2, figsize=(FULL, 1.95), gridspec_kw=dict(wspace=0.55, left=0.10, right=0.97, top=0.76, bottom=0.21))
     for ax, (title, words) in zip(axes, panels):
         z = sum(p * (a if g else 1) for _, p, g in words)
@@ -99,6 +143,32 @@ def push_example():
                loc="lower center", ncol=3, fontsize=7, handlelength=1.0, borderaxespad=0.1, columnspacing=1.6)
     save(fig, "push_example.pdf")
     return panels
+
+
+# ---------------------------------------------------------------------------------------------- z under chance
+def z_null():
+    """Algorithm 1's test: z of the 1,000 human baselines (gamma 0.5, our key) against the N(0, 1) of chance."""
+    import core as C
+    import params as P
+    hz = np.array([r["z"] for r in C.load_rows(C.raw_path("human", "c4")) if r["idx"] < P.N_GEN_PROMPTS])
+    fig, ax = plt.subplots(figsize=(COL, 2.2), gridspec_kw=dict(left=0.16, right=0.97, top=0.88, bottom=0.18))
+    ax.hist(hz, bins=np.arange(-4, 8.01, 0.5), density=True, color=MUTED, alpha=0.6, lw=0, label=f"human texts ({len(hz):,})")
+    x = np.linspace(-4, 8, 400)
+    ax.plot(x, np.exp(-x ** 2 / 2) / math.sqrt(2 * math.pi), color=INK, lw=1.1, label="chance: N(0, 1)")
+    ax.axvline(4, color=SIGNAL, lw=1.0, ls=(0, (3, 2)))
+    ax.text(4.2, 0.53, "flag: z > 4\np = 3.2 × 10⁻⁵", color=SIGNAL, fontsize=7.5, va="top")
+    ax.annotate("attacker,\n200 of 1,000\nedited:\nz = 6.3", xy=(6.3, 0.004), xytext=(6.25, 0.13), ha="center",
+                fontsize=7.5, color=BLUE, arrowprops=dict(arrowstyle="-|>", color=BLUE, lw=0.9, mutation_scale=8))
+    ax.plot([6.3], [0.004], "o", color=BLUE, ms=4, zorder=5)
+    ax.set_xlim(-4, 8)
+    ax.set_ylim(0, 0.6)
+    ax.set_yticks([0, 0.2, 0.4])
+    ax.set_xlabel("z-score")
+    ax.set_ylabel("density")
+    ax.set_title("Human texts follow chance")
+    ax.legend(loc="upper left", fontsize=7, borderaxespad=0.1)
+    save(fig, "z_null.pdf")
+    return dict(n=len(hz), above4=int((hz > 4).sum()), mean=float(hz.mean()), sd=float(hz.std()))
 
 
 # ---------------------------------------------------------------------------------------------- z histogram
@@ -426,8 +496,17 @@ def instruct_entropy():
     return out
 
 
-# ---------------------------------------------------------------------------------------------- hook excerpts
-HOOK_IDX, HOOK_N, HOOK_GAMMA = 177, 40, 0.25
+# ---------------------------------------------------------------------------------------------- opening emails
+EMAIL_PROMPT = ("Write a short email (about 50 words) from Piero, an MFE student at UC Berkeley, to Professor Ali Kakhbod, "
+                "asking to schedule a Zoom meeting to discuss his team's fall project. No subject line. Output only the email.")
+EMAIL_HUMAN = ("Subject: Zoom meeting for our fall project\n\n"
+               "Hi Professor Kakhbod,\n\n"
+               "Romain, Elias and I picked the watermarking paper for our fall project. Could we grab 20 minutes on Zoom "
+               "to run our plan by you before we start the experiments? Thursday afternoon or Friday morning both work "
+               "for us, but we can adapt to your schedule.\n\n"
+               "Thanks a lot,\nPiero")                                        # the human email: replace with your own text
+EMAIL_N, EMAIL_PICK, EMAIL_SEED, EMAIL_GAMMA, EMAIL_DELTA = 16, 11, 0, 0.25, 2.0
+EMAIL_CACHE = os.path.join(SNIP, "emails.json")
 
 
 def tex_escape(s):
@@ -436,59 +515,110 @@ def tex_escape(s):
     return "".join(rep.get(c, c) for c in s)
 
 
-def render_tokens(pieces, flags, colored):
-    """Token boxes; a token with a leading space starts a new word, sub-word pieces attach without space."""
-    out = []
-    for i, (p, g) in enumerate(zip(pieces, flags)):
-        lead = p.startswith(" ")
-        body = tex_escape(p.strip())
-        if lead and body.startswith("''"):
-            body = "``" + body[2:]                                     # opening double quote
-        if not body:
-            continue
-        mac = (r"\gtok" if g else r"\rtok") if colored else r"\ptok"
-        out.append((" " if lead and out else "") + mac + "{" + body + "}")
-    return "".join(out) + ("" if pieces[-1].rstrip().endswith((".", "!", "?")) else r"\ldots")   # no ellipsis after a full stop
+def render_tokens(pieces, flags):
+    """Coloured token boxes in one paragraph (slide 5): a token with a leading space starts a new word, sub-word
+    pieces attach without space; a line break shows as a small coloured arrow, since the detector counts it too."""
+    out, gap = [], False
+    for p, g in zip(pieces, flags):
+        mac = r"\gtok" if g else r"\rtok"
+        body = tex_escape(p.replace("\n", " ").strip())
+        if body:
+            if p.startswith(" ") and body.startswith("''"):
+                body = "``" + body[2:]                                 # opening double quote
+            out.append((" " if (p.startswith(" ") or gap) and out else "") + mac + "{" + body + "}")
+            gap = False
+        if "\n" in p:
+            out.append(mac + r"{\ensuremath{\hookleftarrow}}")
+            gap = True
+    return "".join(out)
 
 
-def hook():
+def plain_text(text):
+    """The email as ordinary text (slide 2): escaped, paragraphs separated by a small gap, line breaks kept."""
+    def esc(line):
+        line = tex_escape(line.strip())
+        line = "``" + line[2:] if line.startswith("''") else line
+        return line.replace(" ''", " ``")                             # opening double quotes
+    paras = [[esc(l) for l in p.split("\n") if l.strip()] for p in text.split("\n\n")]
+    return r"\par\vspace{0.35em}".join(r"\newline ".join(p) for p in paras if p)
+
+
+def generate_emails():
+    """Qwen2.5-1.5B-Instruct writes EMAIL_N emails with the watermark (gamma 0.25, delta 2, temperature 0.7, top_k 0).
+    Run once; the token ids are cached in snippets/emails.json."""
+    import torch
+    from transformers import GenerationConfig, LogitsProcessorList
+    import core as C
+    import params as P
+    model, tok = C.load_lm("qwen-it")
+    V, eos, pids = C.vocab_size(tok), C.eos_ids(model, tok), C.chat_ids(tok, EMAIL_PROMPT)
+    ids = torch.tensor([pids] * EMAIL_N)
+    proc = C.KGW(V, EMAIL_GAMMA, EMAIL_DELTA, tau=P.TEMP, log=False)
+    cfg = GenerationConfig(max_new_tokens=140, do_sample=True, temperature=P.TEMP, top_k=0, top_p=1.0,
+                           eos_token_id=eos, pad_token_id=tok.pad_token_id)
+    torch.manual_seed(EMAIL_SEED)
+    with torch.no_grad():
+        out = model.generate(input_ids=ids.to(C.DEVICE), attention_mask=torch.ones_like(ids).to(C.DEVICE),
+                             generation_config=cfg, logits_processor=LogitsProcessorList([proc]))
+    rows = []
+    for seq in out[:, len(pids):].cpu().tolist():
+        T = next((t for t, x in enumerate(seq) if x in eos), len(seq))
+        rows.append(dict(ids=seq[:T], ended=T < len(seq)))
+    data = dict(model=P.MODELS["qwen-it"], prompt=EMAIL_PROMPT, prompt_ids=pids, gamma=EMAIL_GAMMA, delta=EMAIL_DELTA,
+                temperature=P.TEMP, top_k=0, seed=EMAIL_SEED, rows=rows)
+    with open(EMAIL_CACHE, "w") as fh:
+        json.dump(data, fh)
+    return data
+
+
+def odds(z):
+    """'1 in N' for the one-sided p-value of z."""
+    n = 1 / (0.5 * math.erfc(z / math.sqrt(2)))
+    return f"1 in {n / 1e6:.0f} million" if n >= 1e6 else f"1 in {n:,.0f}"
+
+
+def emails():
+    """My email (EMAIL_HUMAN) and watermarked sample EMAIL_PICK, scored by the detector with the Qwen tokenizer and our
+    key (gamma 0.25); the first token's context is the last token of the chat prompt, for both."""
     from transformers import AutoTokenizer
-    tok = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
-    V = len(tok.get_vocab())
-    k = int(HOOK_GAMMA * V)
-    import core as C                                                # project loaders: .jsonl or .jsonl.gz
-    wm = next(r for r in C.load_rows(C.gen_path("opt-news-m-d2-g0.25")) if r["idx"] == HOOK_IDX)
-    hu = next(r for r in C.load_rows(C.raw_path("human", "c4")) if r["idx"] == HOOK_IDX)
-    pr = next(r for r in C.load_rows(C.PROMPTS_FILE) if r["idx"] == HOOK_IDX)
-    assert wm["gamma"] == HOOK_GAMMA and wm["delta"] == 2.0
+    import core as C
+    import params as P
+    data = json.load(open(EMAIL_CACHE)) if os.path.exists(EMAIL_CACHE) else generate_emails()
+    tok = AutoTokenizer.from_pretrained(P.MODELS["qwen-it"])
+    V, prev0 = C.vocab_size(tok), data["prompt_ids"][-1]
+    zs = np.array([C.detect(r["ids"], prev0, V, EMAIL_GAMMA)["z"] for r in data["rows"]])
     out = {}
-    for name, ids, flags in (("Model", wm["ids"][:HOOK_N], wm["green"][:HOOK_N]),                       # stored flags
-                             ("Human", hu["ids"][:HOOK_N], [int(r < k) for r in hu["ranks"][:HOOK_N]])):  # stored ranks
+    for name, ids in (("Human", tok(EMAIL_HUMAN, add_special_tokens=False).input_ids),
+                      ("AI", data["rows"][EMAIL_PICK]["ids"])):
+        d = C.detect(ids, prev0, V, EMAIL_GAMMA)
         pieces = [tok.decode([t]) for t in ids]
-        text = "".join(pieces)
-        assert all(c.isascii() and c not in "\n\t\r" for c in text), text
-        T, G = len(ids), int(sum(flags))
-        z = (G - HOOK_GAMMA * T) / math.sqrt(T * HOOK_GAMMA * (1 - HOOK_GAMMA))
-        out[name] = dict(plain=render_tokens(pieces, flags, False), color=render_tokens(pieces, flags, True), T=T, G=G,
-                         E=HOOK_GAMMA * T, z=z, text=text)
-    tail = pr["prompt_text"].split("\n")[-1].strip()                 # the article's last line before the continuation
+        text = tok.decode(ids)
+        assert text.isascii() and "".join(pieces) == text, text
+        T, G = len(ids), int(sum(d["green"]))
+        out[name] = dict(plain=plain_text(text), color=render_tokens(pieces, d["green"]),
+                         T=T, G=G, E=EMAIL_GAMMA * T, z=d["z"], text=text)
     os.makedirs(SNIP, exist_ok=True)
-    with open(os.path.join(SNIP, "hook.tex"), "w") as fh:
-        fh.write("%% generated by make_figures.py: prompt idx %d of results/prompts_c4, OPT-1.3B, gamma %.2f, delta 2\n"
-                 % (HOOK_IDX, HOOK_GAMMA))
-        fh.write("%% model: results/raw/gen/opt-news-m-d2-g0.25 (stored green flags); human: results/raw/human/c4 "
-                 "(stored ranks, green iff rank < int(%.2f V), V = %d)\n" % (HOOK_GAMMA, V))
-        fh.write("\\newcommand{\\hookPrompt}{\\ldots\\ %s}\n" % tex_escape(tail))
+    with open(os.path.join(SNIP, "emails.tex"), "w") as fh:
+        fh.write("%% generated by make_figures.py: AI email = sample %d of %d from %s with the watermark (gamma %.2f, "
+                 "delta %g, temperature 0.7), snippets/emails.json; human email = EMAIL_HUMAN in make_figures.py\n"
+                 % (EMAIL_PICK, EMAIL_N, data["model"], EMAIL_GAMMA, EMAIL_DELTA))
         for name, d in out.items():
-            fh.write("\\newcommand{\\hook%sPlain}{%s}\n" % (name, d["plain"]))
-            fh.write("\\newcommand{\\hook%sColor}{%s}\n" % (name, d["color"]))
-            fh.write("\\newcommand{\\hook%sTokens}{%d}\n\\newcommand{\\hook%sGreen}{%d}\n" % (name, d["T"], name, d["G"]))
-            fh.write("\\newcommand{\\hook%sExpected}{%s}\n\\newcommand{\\hook%sZ}{%.1f}\n" % (name, f"{d['E']:g}", name, d["z"]))
-    print("wrote snippets/hook.tex:", {n: (d["T"], d["G"], d["E"], round(d["z"], 2)) for n, d in out.items()})
+            fh.write("\\newcommand{\\email%sPlain}{%s}\n" % (name, d["plain"]))
+            fh.write("\\newcommand{\\email%sColor}{%s}\n" % (name, d["color"]))
+            fh.write("\\newcommand{\\email%sTokens}{%d}\n\\newcommand{\\email%sGreen}{%d}\n" % (name, d["T"], name, d["G"]))
+            fh.write("\\newcommand{\\email%sExpected}{%.0f}\n\\newcommand{\\email%sZ}{%.1f}\n" % (name, d["E"], name, d["z"]))
+        fh.write("\\newcommand{\\emailAIOdds}{%s}\n" % odds(out["AI"]["z"]))
+        fh.write("\\newcommand{\\emailSamples}{%d}\n\\newcommand{\\emailSamplesAbove}{%d}\n\\newcommand{\\emailSamplesMedian}{%.1f}\n"
+                 % (len(zs), int((zs > 4).sum()), float(np.median(zs))))
+    print("wrote snippets/emails.tex:", {n: (d["T"], d["G"], d["E"], round(d["z"], 2)) for n, d in out.items()},
+          "samples above 4:", int((zs > 4).sum()), "median z:", round(float(np.median(zs)), 2), "AI odds:", odds(out["AI"]["z"]))
     return out
 
 
 if __name__ == "__main__":
+    ban_example("dinner")
+    ban_example("barack")
+    print("z_null:", z_null())
     push_example()
     z_hist()
     table8_dots()
@@ -502,4 +632,4 @@ if __name__ == "__main__":
     z_vs_T()
     removal_frontier_z4()
     print("instruct entropy (tokens, mean, csv H_nowm):", instruct_entropy())
-    hook()
+    emails()
