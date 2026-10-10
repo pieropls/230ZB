@@ -1,10 +1,11 @@
-"""Slide figures (vector PDF, drawn at the size they occupy on the slide) and the opening-slide token excerpts.
+"""Slide figures (vector PDF, drawn at the size they occupy on the slide) and the opening-slide emails.
 
     cd presentation && ../.venv/bin/python make_figures.py
 
 Reads results/summary/*.csv, and results/raw/ through the project's loaders in core.py (read-only); writes figures/*.pdf and
-snippets/hook.tex. No statistic is recomputed: every plotted value is a column of a summary file, except the
-illustrative push example (computed from the watermark formula) and the hook counts (stored green flags).
+snippets/emails.tex. No statistic is recomputed: every plotted value is a column of a summary file, except the
+illustrative ban and push examples (computed from the watermark formula) and the email counts (the detector run on
+EMAIL_HUMAN and on the cached AI email in snippets/emails.json).
 """
 import csv
 import json
@@ -52,9 +53,10 @@ def err(v, lo, hi):
     return [[max(0.0, v - lo)], [max(0.0, hi - v)]]
 
 
-def save(fig, name):
+def save(fig, name, tight=False):
     os.makedirs(FIG, exist_ok=True)
-    fig.savefig(os.path.join(FIG, name), bbox_inches=None, metadata={"CreationDate": None})   # deterministic bytes
+    fig.savefig(os.path.join(FIG, name), bbox_inches="tight" if tight else None,
+                metadata={"CreationDate": None})                                          # deterministic bytes
     plt.close(fig)
     print("wrote figures/" + name)
 
@@ -197,65 +199,70 @@ def z_hist():
 
 
 # ---------------------------------------------------------------------------------------------- Table 8 dots
-def table8_dots():
+def table8_dots_z4():
+    """Table 8 at z = 4: ours with 95% intervals, the paper as hollow markers; gold = the setting that differs."""
     t = rows("table8")
     order = [("m-nom", d, g) for d in (1, 2, 5) for g in (0.5, 0.25)] + [("8-beams", d, g) for d in (1, 2, 5) for g in (0.5, 0.25)]
     by = {(r["sampling"], int(float(r["delta"])), float(r["gamma"])): r for r in t}
-    fig, ax = plt.subplots(figsize=(3.05, 2.1), gridspec_kw=dict(left=0.15, right=0.98, top=0.87, bottom=0.295))
+    fig, ax = plt.subplots(figsize=(3.05, 2.1), gridspec_kw=dict(left=0.17, right=0.98, top=0.87, bottom=0.33))
     xs = []
     for i, k in enumerate(order):
         x = i + (0.6 if i >= 6 else 0)
         xs.append(x)
         r = by[k]
-        for dz, z, m, off in (("z4", "TPR_z4", "o", -0.14), ("z5", "TPR_z5", "s", 0.14)):
-            v, lo, hi = f(r[z]), f(r[z + "_lo"]), f(r[z + "_hi"])
-            ax.errorbar([x + off], [v], yerr=err(v, lo, hi), fmt=m, ms=3.6, color=BLUE, elinewidth=0.8, capsize=1.5, zorder=4)
-            paper_marker(ax, x + off, f(r["paper_TPR_" + dz]), m)
+        v, lo, hi = f(r["TPR_z4"]), f(r["TPR_z4_lo"]), f(r["TPR_z4_hi"])
+        ax.errorbar([x], [v], yerr=err(v, lo, hi), fmt="o", ms=3.6, color=BLUE, elinewidth=0.8, capsize=1.5, zorder=4)
+        paper_marker(ax, x, f(r["paper_TPR_z4"]), "o")
         if r["vs_paper_z5"] == "different":
             ax.axvspan(x - 0.42, x + 0.42, color=GOLD, alpha=0.35, lw=0, zorder=0)
-    ax.set_ylim(0.3, 1.04)
+    ax.set_ylim(0, 1.04)
+    ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
+    ax.set_yticklabels(["0", "0.25", "0.5", "0.75", "1"])
     ax.set_xlim(xs[0] - 0.6, xs[-1] + 0.6)
     ax.set_xticks(xs)
     ax.set_xticklabels([".5" if g == 0.5 else ".25" for _, _, g in order])
     ax.tick_params(axis="x", length=0, pad=2)
     trans = ax.get_xaxis_transform()
-    ax.text(xs[0] - 0.95, -0.075, "γ", transform=trans, ha="center", va="top", fontsize=7.5, color=MUTED)
-    ax.text(xs[0] - 0.95, -0.17, "δ", transform=trans, ha="center", va="top", fontsize=7.5, color=MUTED)
+    ax.text(xs[0] - 0.55, -0.075, "green share", transform=trans, ha="right", va="top", fontsize=6.5, color=MUTED)
     for j, d in enumerate((1, 2, 5, 1, 2, 5)):
         xm = (xs[2 * j] + xs[2 * j + 1]) / 2
-        ax.text(xm, -0.17, str(d), transform=trans, ha="center", va="top", fontsize=7.5)
+        ax.text(xm, -0.17, {1: "weak", 2: "standard", 5: "strong"}[d] + f"\nδ={d}", transform=trans, ha="center",
+                va="top", fontsize=6, linespacing=1.0)
     for g0, name in ((0, "multinomial"), (6, "8 beams")):
         xm = (xs[g0] + xs[g0 + 5]) / 2
-        ax.text(xm, -0.27, name, transform=trans, ha="center", va="top", fontsize=7.5, fontweight="bold")
-    ax.set_ylabel("true positive rate")
-    ax.set_title("Table 8: detection rate")
-    hz4 = plt.Line2D([], [], marker="o", color=BLUE, ls="none", ms=3.6, label="ours, z = 4")
-    hz5 = plt.Line2D([], [], marker="s", color=BLUE, ls="none", ms=3.6, label="ours, z = 5")
+        ax.text(xm, -0.36, name, transform=trans, ha="center", va="top", fontsize=7.5, fontweight="bold")
+    ax.set_ylabel("watermarked texts detected", fontsize=7.5, labelpad=30)
+    ax.set_title("Detection by strength of the push")
+    ho = plt.Line2D([], [], marker="o", color=BLUE, ls="none", ms=3.6, label="ours")
     hp = plt.Line2D([], [], marker="o", mfc="none", mec="black", ls="none", ms=5, label="paper")
-    ax.legend(handles=[hz4, hz5, hp], loc="lower right", fontsize=7, handletextpad=0.2, borderaxespad=0.1)
-    save(fig, "table8_dots.pdf")
+    ax.legend(handles=[ho, hp], loc="lower right", fontsize=7, handletextpad=0.2, borderaxespad=0.1)
+    save(fig, "table8_dots_z4.pdf", tight=True)
 
 
 # ---------------------------------------------------------------------------------------------- T5 attack
-def t5_attack():
+def t5_attack_z4():
+    """Table 9 at z = 4, single-word T5 attack: ours with 95% intervals against the paper."""
     t = [r for r in rows("table9_t5") if r["sampling"] == "m-nom, single-word T5"]
     eps = [f(r["eps"]) for r in t]
     fig, ax = plt.subplots(figsize=(2.45, 2.1), gridspec_kw=dict(left=0.19, right=0.97, top=0.87, bottom=0.19))
-    for z, ls, m, lab in (("TPR_z4", "-", "o", "ours, z = 4"), ("TPR_z5", (0, (3, 2)), "s", "ours, z = 5")):
-        v = np.array([f(r[z]) for r in t])
-        lo = np.array([f(r[z + "_lo"]) for r in t]); hi = np.array([f(r[z + "_hi"]) for r in t])
-        ax.errorbar(eps, v, yerr=[np.maximum(0, v - lo), np.maximum(0, hi - v)], fmt=m, ls=ls, ms=3.4, color=BLUE, lw=1.1, elinewidth=0.8, capsize=1.5, label=lab)
-    for i, r in enumerate(t):
-        paper_marker(ax, eps[i], f(r["paper_TPR_z4"]), "o", "paper" if i == 0 else None)
-        paper_marker(ax, eps[i], f(r["paper_TPR_z5"]), "s")
+    pv = [f(r["paper_TPR_z4"]) for r in t]
+    ax.plot(eps, pv, color="black", lw=0.9, ls=(0, (3, 2)), zorder=3)
+    for x, y in zip(eps, pv):
+        paper_marker(ax, x, y, "o")
+    v = np.array([f(r["TPR_z4"]) for r in t])
+    lo = np.array([f(r["TPR_z4_lo"]) for r in t]); hi = np.array([f(r["TPR_z4_hi"]) for r in t])
+    ax.errorbar(eps, v, yerr=[np.maximum(0, v - lo), np.maximum(0, hi - v)], fmt="o", ls="-", ms=3.4, color=BLUE, lw=1.1,
+                elinewidth=0.8, capsize=1.5, zorder=4)
+    ax.text(0.13, 1.01, "ours", ha="left", va="center", fontsize=7, color=BLUE)
+    ax.text(0.08, 0.749, "paper", ha="right", va="center", fontsize=7, color="black")
     ax.set_xticks(eps)
-    ax.set_xticklabels(["0", "10%", "30%", "50%", "70%"])
-    ax.set_xlabel("words swapped (ε)")
-    ax.set_ylabel("true positive rate")
+    ax.set_xticklabels(["0%", "10%", "30%", "50%", "70%"])
+    ax.set_xlim(-0.04, 0.74)
+    ax.set_xlabel("share of words swapped")
+    ax.set_ylabel("still detected")
     ax.set_ylim(-0.03, 1.05)
-    ax.set_title("T5 word swaps")
-    ax.legend(loc="upper right", fontsize=7, borderaxespad=0.1)
-    save(fig, "t5_attack.pdf")
+    ax.set_title("The paper's attack: word swaps", fontsize=8.5, loc="left", x=-0.21)
+    save(fig, "t5_attack_z4.pdf", tight=True)
 
 
 # ---------------------------------------------------------------------------------------------- Ext 1
@@ -340,35 +347,6 @@ def dilution():
     ax.set_title("A pasted passage")
     ax.legend(loc="lower right", fontsize=7, borderaxespad=0.1)
     save(fig, "dilution.pdf")
-
-
-# ---------------------------------------------------------------------------------------------- Ext 4
-def keys_length():
-    t = rows("keys_eos")
-    fig, ax = plt.subplots(figsize=(COL, 2.3), gridspec_kw=dict(left=0.40, right=0.95, top=0.86, bottom=0.17))
-    labels, colors = [], []
-    for r in t:
-        if r["hash_key"].startswith("none"):
-            labels.append("no watermark"); colors.append(MUTED)
-        else:
-            ours = r["hash_key"] == "15485863"
-            green = r["eos_green_after_dot"] == "True"
-            labels.append(f"key {r['hash_key']}{' (ours)' if ours else ''}\nEOS {'green' if green else 'red'} after '.'")
-            colors.append(SIGNAL if ours else BLUE)
-    y = np.arange(len(t))[::-1]
-    for yi, r, c in zip(y, t, colors):
-        v, lo, hi = f(r["kept_share"]), f(r["kept_lo"]), f(r["kept_hi"])
-        ax.barh(yi, v, height=0.58, color=c, lw=0)
-        ax.errorbar([v], [yi], xerr=err(v, lo, hi), fmt="none", ecolor=INK, elinewidth=0.8, capsize=1.8)
-        ax.text(hi + 0.02, yi, f"{v:.2f}", va="center", fontsize=7.5)
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=7)
-    ax.tick_params(axis="y", length=0)
-    ax.set_xlim(0, 1.08)
-    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax.set_xlabel("share reaching 195 tokens")
-    fig.text(0.02, 0.965, "Texts that run to full length", ha="left", va="top", fontsize=9, fontweight="bold")
-    save(fig, "keys_length.pdf")
 
 
 # ---------------------------------------------------------------------------------------------- backup: trade-off
@@ -626,12 +604,11 @@ if __name__ == "__main__":
     print("z_null:", z_null())
     push_example()
     z_hist()
-    table8_dots()
-    t5_attack()
+    table8_dots_z4()
+    t5_attack_z4()
     tokens_to_detect()
     removal_frontier()
     dilution()
-    keys_length()
     tradeoff()
     theory_bound()
     z_vs_T()
