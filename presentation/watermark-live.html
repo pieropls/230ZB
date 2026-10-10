@@ -1,0 +1,448 @@
+<meta charset="utf-8">
+<title>Green-List Watermark Live</title>
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='13' height='28' rx='3' fill='%23177A43'/%3E%3Crect x='17' y='2' width='13' height='28' rx='3' fill='%23B8402F'/%3E%3C/svg%3E">
+<style>
+/* Projector demo. One light theme, system fonts only (works offline), few borders, lots of air.
+   Layout: title + scene tabs / one-line lede / stage (text and next-word strip on the left, detector on the right). */
+:root{
+  color-scheme: light;
+  --bg:#F6F7F5; --panel:#FFFFFF; --ink:#16201B; --ink-2:#4D5A53; --ink-3:#86918B; --rule:#E2E6E3;
+  --green:#177A43; --gw:#D7EFDF; --red:#B8402F; --rw:#F8DDD6; --accent:#2B44C0; --aw:#E6EAFA; --gold:#9A6B00;
+  --display:"Avenir Next","Avenir","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+  font-size:clamp(13px, min(1.1vw, 1.95vh), 23px);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;color:inherit}
+.page{min-height:100vh;display:flex;flex-direction:column;gap:.9rem;padding:1.1rem 1.7rem .8rem;max-width:2600px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem 2rem;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:1.65rem;letter-spacing:-.01em;margin:0}
+h1 span{color:var(--ink-3);font-weight:500}
+.tabs{display:flex;gap:.25rem;background:var(--panel);border:1px solid var(--rule);border-radius:.6rem;padding:.25rem}
+.tabs button{border:0;background:transparent;border-radius:.4rem;padding:.45rem .9rem;font-size:.95rem;font-weight:600;color:var(--ink-2);cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.lede{margin:0;font-size:1.15rem;color:var(--ink-2)}
+.lede b{color:var(--ink);font-weight:650}
+.g{color:var(--green);font-weight:650}.r{color:var(--red);font-weight:650}
+
+.stage{flex:1;display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:1.2rem;min-height:0}
+.stage[hidden]{display:none}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:.7rem;padding:1.1rem 1.25rem;min-width:0}
+.left{display:flex;flex-direction:column;gap:.9rem;min-height:0}
+.bar{display:flex;align-items:center;gap:.6rem .8rem;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--bg);border-radius:.5rem;padding:.2rem}
+.seg button{border:0;background:transparent;border-radius:.35rem;padding:.4rem .8rem;font-size:.92rem;font-weight:600;color:var(--ink-2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--rule)}
+.ctl{display:flex;align-items:center;gap:.55rem;font-size:.92rem;color:var(--ink-2)}
+.ctl[hidden]{display:none}
+.ctl output{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600;white-space:nowrap}
+input[type=range]{accent-color:var(--ink);width:6.5rem}
+.grow{flex:1}
+.btn{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--rule);background:var(--panel);border-radius:.5rem;padding:.45rem .8rem;font-size:.92rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn svg{width:.85em;height:.85em;fill:currentColor}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.icon{padding:.45rem .6rem}.btn.icon svg{width:1.05em;height:1.05em}
+.btn svg.st{fill:none}
+.btn:focus-visible,.seg button:focus-visible,.tabs button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* the text */
+.textbox{flex:1;font-size:1.1rem;line-height:2.05;overflow-y:auto;min-height:12rem;padding-right:.3rem}
+.textbox .hint{color:var(--ink-3)}
+.tk{padding:.08em .2em;border-radius:.2em}
+.tk.gt{background:var(--gw)} .tk.rt{background:var(--rw)}
+.tk.forced{text-decoration:underline wavy var(--red);text-decoration-thickness:2px;text-underline-offset:.3em;text-decoration-skip-ink:none}
+.tk.last{box-shadow:0 0 0 2px var(--ink)}
+
+/* the next-word strip */
+.next{border-top:1px solid var(--rule);padding-top:.85rem;display:flex;flex-direction:column;gap:.6rem}
+.next-h{font-size:.92rem;color:var(--ink-2)}
+.next-h b{color:var(--ink)}
+.cands{display:flex;flex-wrap:wrap;gap:.45rem;min-height:3.3rem;align-items:flex-start}
+.c{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.3rem .65rem .35rem;border-radius:.45rem;min-width:4.6rem;transition:opacity .2s}
+.c .cw{font-weight:650;font-size:1.05rem;line-height:1.2}
+.c .cp{font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.c.gc{background:var(--gw)} .c.gc .cw{color:var(--green)}
+.c.rc{background:var(--rw)} .c.rc .cw{color:var(--red)}
+.c.banned{opacity:.55} .c.banned .cw{text-decoration:line-through;text-decoration-thickness:2px}
+.c.down{opacity:.75}
+.c.pick{box-shadow:0 0 0 2.5px var(--ink)}
+.c.more{background:transparent;color:var(--ink-3);font-size:.85rem;justify-content:center;min-width:0}
+.next-n{font-size:1rem;color:var(--ink-2);min-height:1.5em}
+.next-n b{color:var(--ink)}
+
+/* detector */
+.right{display:flex;flex-direction:column;gap:1rem}
+.lab{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.zrow{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem}
+.zbig{font-family:var(--display);font-weight:700;font-size:3.7rem;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.pill{font-weight:650;font-size:.92rem;padding:.35rem .8rem;border-radius:999px;background:var(--bg);color:var(--ink-3);white-space:nowrap}
+.pill.on{background:var(--gw);color:var(--green)}
+dl.kv{display:grid;grid-template-columns:1fr auto;gap:.4rem 1rem;margin:0;font-size:1rem}
+dl.kv dt{color:var(--ink-2)} dl.kv dd{margin:0;text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+dl.kv sup{font-size:.7em}
+.hide{display:none}
+svg.zc{width:100%;height:auto;display:block;margin-top:auto}
+svg.zc text{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
+svg.zc .ax{stroke:var(--rule)}
+svg.zc .thr{stroke:var(--gold);stroke-width:1.5;stroke-dasharray:5 4}
+svg.zc .thrl{fill:var(--gold);font-weight:600}
+svg.zc .ln{fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round}
+
+/* Barack */
+.bstage{flex:1;display:flex;flex-direction:column;gap:1.1rem}
+.bstage[hidden]{display:none}
+.sentence{font-family:var(--display);font-weight:600;font-size:2.15rem;line-height:1.3;letter-spacing:-.01em}
+.sentence .ctx{color:var(--ink-3)}
+.slot{display:inline-block;padding:0 .35em;border-radius:.25em}
+.slot.gt{background:var(--gw);color:var(--green)} .slot.rt{background:var(--rw);color:var(--red)}
+.split{display:flex;align-items:center;gap:1rem;font-size:.9rem;color:var(--ink-2)}
+.vstrip{flex:1;display:grid;grid-template-columns:repeat(80,minmax(0,1fr));gap:2px}
+.vstrip i{display:block;height:.6rem;border-radius:1.5px;background:var(--red);opacity:.85;transition:background .35s;transition-delay:var(--d,0s)}
+.vstrip i.g{background:var(--green)}
+.bk{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:1.4rem;align-items:start}
+.bars{display:grid;gap:.5rem}
+.bhead,.brow{display:grid;grid-template-columns:7.5rem minmax(0,1fr) 8.5rem;gap:.9rem;align-items:center}
+.bhead{font-size:.82rem;color:var(--ink-3)} .bhead span:last-child{text-align:right}
+.w{font-weight:650;font-size:1.12rem;justify-self:start;padding:.05rem .45rem;border-radius:.25rem}
+.w.gt{background:var(--gw);color:var(--green)} .w.rt{background:var(--rw);color:var(--red)}
+.brow.ban .w{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6}
+.track{position:relative;height:1.4rem}
+.ghost{position:absolute;inset:0 auto 0 0;border:1.5px dashed var(--ink-3);border-radius:.25rem;transition:width .3s}
+.fill{position:absolute;top:.25rem;bottom:.25rem;left:0;border-radius:.18rem;transition:width .35s}
+.fill.gf{background:var(--green)} .fill.rf{background:var(--red)}
+.v{font-size:1rem;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.v b{color:var(--ink)}
+.verdict{border-radius:.6rem;padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.55rem}
+.verdict.ok{background:#E9F5EE} .verdict.bad{background:#FBE8E3}
+.verdict .big{font-family:var(--display);font-weight:700;font-size:2rem;line-height:1.1}
+.verdict.ok .big{color:var(--green)} .verdict.bad .big{color:var(--red)}
+.verdict p{margin:0;font-size:1.08rem;line-height:1.45}
+.verdict .num{color:var(--ink-2);font-size:1rem}
+
+footer{display:flex;justify-content:space-between;gap:.5rem 1.5rem;flex-wrap:wrap;font-size:.78rem;color:var(--ink-3)}
+kbd{font-family:var(--sans);font-size:.74rem;padding:0 .3rem;border:1px solid var(--rule);border-radius:.25rem;background:var(--panel)}
+@media (max-width:900px){.stage,.bk{grid-template-columns:minmax(0,1fr)}.sentence{font-size:1.5rem}}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+
+<div class="page">
+  <header>
+    <h1>The green-list watermark <span>live</span></h1>
+    <nav class="tabs" id="tabs" aria-label="Scenes"></nav>
+  </header>
+  <p class="lede" id="lede"></p>
+
+  <!-- scenes 1 and 3 -->
+  <main class="stage" id="vText">
+    <section class="card left">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Watermark"><button id="wOff">No watermark</button><button id="wOn">Watermark</button></div>
+        <div class="ctl" id="dCtl"><span>&#x3B4;</span><input id="delta" type="range" min="0" max="8" step="0.5" value="2" aria-label="Push delta"><output id="dOut"></output></div>
+        <span class="grow"></span>
+        <div class="seg" role="group" aria-label="Speed"><button id="spSlow">Slow</button><button id="spFast">Fast</button></div>
+        <button class="btn primary" id="bPlay"></button>
+        <button class="btn icon" id="bAll" title="Show the whole text (E)" aria-label="Show the whole text"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3l6 5-6 5z M8 3l6 5-6 5z"/></svg></button>
+        <button class="btn icon" id="bNew" title="New text (N)" aria-label="New text"><svg class="st" viewBox="0 0 16 16" aria-hidden="true" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.8"/><path d="M12.2 1.6v3h-3"/></svg></button>
+      </div>
+      <div class="textbox" id="tokens"></div>
+      <div class="next">
+        <div class="next-h" id="nextH"></div>
+        <div class="cands" id="cands"></div>
+        <div class="next-n" id="nextN"></div>
+      </div>
+    </section>
+    <aside class="card right">
+      <div class="lab">Detector</div>
+      <div class="zrow"><div><div style="font-size:.9rem;color:var(--ink-2)">z-score</div><div class="zbig" id="z">0.00</div></div><span class="pill" id="verdict"></span></div>
+      <dl class="kv">
+        <dt>Words checked</dt><dd id="kT">0</dd>
+        <dt>Green words</dt><dd id="kG">0</dd>
+        <dt>Expected by chance (half)</dt><dd id="kE">0</dd>
+        <dt>Chance a human writes this</dt><dd id="kP">&ndash;</dd>
+        <dt id="kFdt">Words forced by the ban</dt><dd id="kF">0</dd>
+      </dl>
+      <svg class="zc" id="zc" viewBox="0 0 360 230" role="img" aria-label="z-score as the text grows, with the detection threshold at 4"></svg>
+    </aside>
+  </main>
+
+  <!-- scenes 2 and 4 -->
+  <main class="card bstage" id="vBarack" hidden>
+    <div class="bar">
+      <button class="btn primary" id="bKey">New key</button>
+      <span class="ctl" id="keyTxt"></span>
+      <span class="grow"></span>
+      <div class="ctl" id="bdCtl"><span>Push &#x3B4;</span><input id="bdelta" type="range" min="0" max="8" step="0.5" value="2" aria-label="Push delta"><output id="bdOut"></output></div>
+    </div>
+    <div class="sentence"><span class="ctx">Last week, former US president Barack</span> <span class="slot" id="slot"></span></div>
+    <div class="split"><span>Split seeded by <b>Barack</b> + the key</span><div class="vstrip" id="vstrip" aria-hidden="true"></div></div>
+    <div class="bk">
+      <div class="bars" id="bars"></div>
+      <div class="verdict" id="vcard"></div>
+    </div>
+  </main>
+
+  <footer>
+    <span>Text from a small toy language model (277 words), so the demo runs offline. The watermark is the paper's: seeded split, ban or push of &#x3B4;, z-test.</span>
+    <span><kbd>1</kbd>&ndash;<kbd>4</kbd> scenes &middot; <kbd>space</kbd> play &middot; <kbd>W</kbd> watermark &middot; <kbd>S</kbd> speed &middot; <kbd>N</kbd> new &middot; <kbd>F</kbd> full screen</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const ICON = {
+  play:'<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1 L9 5 L2 9 Z"/></svg>',
+  pause:'<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="1.5" y="1" width="2.6" height="8" rx=".5"/><rect x="5.9" y="1" width="2.6" height="8" rx=".5"/></svg>',
+  again:'<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.2a3.8 3.8 0 1 0 3.6 2.6l-1.1.4A2.6 2.6 0 1 1 5 2.4V4l2.4-2.2L5 -.4z"/></svg>'
+};
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hash2(a,b){let h=Math.imul(a^0x9e3779b9,0x85ebca6b)^Math.imul((b+0x632be5ab)|0,0xc2b2ae35);h^=h>>>16;h=Math.imul(h,0x7feb352d);h^=h>>>15;h=Math.imul(h,0x846ca68b);h^=h>>>16;return h>>>0;}
+function shash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function erfc(x){const z=Math.abs(x),t=1/(1+0.5*z);const r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));return x>=0?r:2-r;}
+function pvalHTML(z){
+  if (z<=0) return '50% or more';
+  if (z<30){ const p=0.5*erfc(z/Math.SQRT2); if (p>=0.001) return (100*p).toFixed(1)+'%'; const e=Math.floor(Math.log10(p)); return (p/Math.pow(10,e)).toFixed(1)+' &times; 10<sup>&minus;'+(-e)+'</sup>'; }
+  return 'about 10<sup>&minus;'+(-Math.floor((-z*z/2-Math.log(z*Math.sqrt(2*Math.PI)))/Math.LN10))+'</sup>';
+}
+function pct(x){ if (x===0) return '0%'; if (x<0.01) return (100*x).toFixed(1)+'%'; if (x>0.995 && x<1) return (100*x).toFixed(1)+'%'; return Math.round(100*x)+'%'; }
+const Q = s => '&ldquo;'+s+'&rdquo;';
+const fmtZ = z => (z<0?'&minus;':'')+Math.abs(z).toFixed(2);
+const GAMMA = 0.5;
+
+/* ---------- toy language model: which word follows which, counted on sentences from a small grammar ---------- */
+const L = s => s.split('|');
+const SLOTS = {
+ wn:L('weather|sky|morning|evening|afternoon|air|sea|wind|coast|city|harbour|night|valley|lake|river|forecast|weekend|market|square|road'),
+ tm:L('today|tonight|this morning|this evening|again|at noon|all week|on sunday|for hours|by midday|at dawn|until late|on monday|overnight'),
+ aw:L('cold|grey|windy|warm|bright|wet|calm|dark|mild|humid|clear|rough|still|damp|cool|heavy|quiet|foggy|sunny|stormy|pale|crisp|dry|gentle|bitter|soft'),
+ sb:L('the mayor|the minister|the council|most people|the traders|the students|a reporter|the police|the board|the company|the team|the workers|our neighbours|the tourists|two nurses|the farmers|my sister|the drivers|local artists|the teachers|a few fans|the engineers'),
+ vb:L('met|spoke|waited|walked|arrived|worked|voted|gathered|stayed|protested|celebrated|argued|ate|queued|danced|rested|sang|marched|camped|shopped'),
+ pr:L('near|in|at|behind|outside|inside|beside|across|around|below|above|opposite'),
+ pl:L('river|station|bridge|market|museum|harbour|stadium|square|library|park|office|airport|old town|town hall|cathedral|gallery|hospital|school|beach|garden|factory|cinema'),
+ mk:L('markets|shares|bonds|prices|streets|shops|trains|roads|stalls|ferries|flights|rents|wages|bakeries|cafes'),
+ ma:L('quiet|busy|open|closed|rising|falling|higher|lower|flat|steady|crowded|empty|delayed|cheaper|full|slow|late|packed'),
+ mp:L('traders|investors|workers|tourists|drivers|buyers|analysts|shoppers|commuters|owners|tenants|bankers|pilots|bakers'),
+ md:L('nervous|calm|cautious|busy|tired|happy|worried|optimistic|patient|restless|relieved|confused|angry|cheerful|curious|bored'),
+ nw:L('new|recent|short|long|leaked|official|private|second|detailed|brief|careful|delayed'),
+ tp:L('the economy|inflation|demand|growth|unemployment|the housing market|trade|spending|confidence|investment|output|tourism|lending|hiring'),
+ tr:L('slowing|rising|falling|strong|weak|stable|recovering|improving|cooling|uneven|fragile|resilient|flat|booming'),
+ ad:L('small|old|busy|famous|quiet|crowded|tiny|grand|modern|empty|narrow|lovely'),
+ ac:L('opened|closed|reopened|flooded|emptied|filled|sold out|stayed open|went quiet|shut early')
+};
+const TEMPL = [[22,'the {wn} {tm} was {aw} and {aw}'],[22,'{sb} {vb} {pr} the {pl} {tm}'],[16,'the {mk} were {ma} and the {mp} were {md}'],[14,'a {nw} report said {tp} was {tr}'],[12,'every {ad} {pl} {ac} {tm}'],[8,'by {tm} the {mp} felt {md}'],[2,'barack obama spoke in new york this morning'],[2,'the central bank kept rates on hold'],[1,'the quick brown fox jumps over the lazy dog'],[1,'the central bank raised rates again']];
+const LM = (function(){
+  const r=mulberry32(12345), tw=TEMPL.reduce((a,t)=>a+t[0],0), seq=['.'];
+  const pick=a=>a[Math.floor(r()*a.length)];
+  for (let i=0;i<4000;i++){ let u=r()*tw, t=TEMPL[0][1]; for (const [w,s] of TEMPL){u-=w; if(u<=0){t=s;break;}} seq.push(...t.replace(/\{(\w+)\}/g,(_,k)=>pick(SLOTS[k])).split(' '),'.'); }
+  const vocab=[...new Set(seq)], id=new Map(vocab.map((w,i)=>[w,i])), V=vocab.length, cnt=Array.from({length:V},()=>new Map());
+  for (let i=0;i<seq.length-1;i++){const a=id.get(seq[i]),b=id.get(seq[i+1]);cnt[a].set(b,(cnt[a].get(b)||0)+1);}
+  const succ=cnt.map(m=>{const tot=[...m.values()].reduce((x,y)=>x+y,0);return [...m.entries()].map(([b,c])=>[b,c/tot]).sort((x,y)=>y[1]-x[1]);});
+  return {vocab,id,V,succ};
+})();
+const gCache=new Map();
+function greenMask(key, prev){
+  const k=key+'|'+prev; let m=gCache.get(k); if(m) return m;
+  const r=mulberry32(hash2(key, prev)), p=[...Array(LM.V).keys()];
+  for (let i=LM.V-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=p[i];p[i]=p[j];p[j]=t;}
+  m=new Uint8Array(LM.V); const G=Math.floor(GAMMA*LM.V); for(let i=0;i<G;i++) m[p[i]]=1; gCache.set(k,m); return m;
+}
+/* rule: 'none', 'ban' (Algorithm 1) or 'push' (Algorithm 2: +delta on every green score) */
+function generate(rule, delta, key, T, seed){
+  const r=mulberry32(seed*7919+key); let prev=LM.id.get('.'); const out=[];
+  for (let t=0;t<T;t++){
+    const nx=LM.succ[prev], g=greenMask(key, prev), a=Math.exp(delta);
+    let q, w, forced=false;
+    if (rule==='ban'){
+      const Z=nx.reduce((s,[b,p])=>s+(g[b]?p:0),0);
+      q = nx.map(([b,p])=>Z>0 && g[b] ? p/Z : 0);
+      if (Z===0){ const gs=[]; for(let i=0;i<LM.V;i++) if(g[i] && LM.vocab[i]!=='.') gs.push(i); w=gs[Math.floor(r()*gs.length)]; forced=true; }
+    } else {
+      const ws=nx.map(([b,p])=>p*(rule==='push'&&g[b]?a:1)), Z=ws.reduce((s,x)=>s+x,0); q=ws.map(x=>x/Z);
+    }
+    if (!forced){ let u=r(); w=nx[nx.length-1][0]; for (let i=0;i<nx.length;i++){u-=q[i]; if(u<=0){w=nx[i][0];break;}} }
+    out.push({w:LM.vocab[w], green:!!g[w], forced, prev:LM.vocab[prev], cands:nx.map(([b,p],i)=>({w:LM.vocab[b], p, q:q[i], g:!!g[b], pick:b===w}))});
+    prev=w;
+  }
+  return out;
+}
+const PROPER = {barack:'Barack', obama:'Obama', sunday:'Sunday', monday:'Monday'};
+function display(run, i){
+  let w=run[i].w;
+  if (PROPER[w]) w=PROPER[w];
+  if (w==='new' && run[i+1] && run[i+1].w==='york') w='New';
+  if (w==='york' && i>0 && run[i-1].w==='new') w='York';
+  if ((i===0 || run[i-1].w==='.') && w!=='.') w=w[0].toUpperCase()+w.slice(1);
+  return w;
+}
+
+/* ---------- scenes, each with its own state ---------- */
+const SCENES = [
+  {name:'Algorithm 1', view:'text', rule:'ban', key:1729,
+   lede:'<b>The hard rule.</b> Before each word, the previous word and a secret key split the vocabulary in half at random. <span class="r">Red</span> words are <b>banned</b>, so a watermarked text is all <span class="g">green</span>.'},
+  {name:'Barack: problem', view:'barack', rule:'ban',
+   lede:'<b>Where the ban hurts.</b> After &ldquo;Barack&rdquo; the model is 96% sure of &ldquo;Obama&rdquo;. Whether the key puts &ldquo;Obama&rdquo; in the green or the red half is luck.'},
+  {name:'Algorithm 2', view:'text', rule:'push', key:4,
+   lede:'<b>The soft rule.</b> Same split, nothing banned: every <span class="g">green</span> word gets a bonus &delta;, so its odds are multiplied by e<sup>&delta;</sup>. Where the model hesitates, green wins; where it is sure, nothing changes.'},
+  {name:'Barack: solved', view:'barack', rule:'push',
+   lede:'<b>The push leaves sure words alone.</b> Same key, same red &ldquo;Obama&rdquo;: the bonus lifts the tiny green alternatives, but it cannot beat 96%.'}
+];
+const T_LEN = 120, SPEED = {slow:650, fast:110};
+const ST = SCENES.map(() => ({wm:true, delta:2, seed:1, shown:0, keyIdx:0, speed:'slow'}));
+const BARACK_KEYS = [7, 8, 15, 11, 33, 16];   /* "Obama" red, green, red, green, ... */
+const CANDS = [['Obama',.962],['Hussein',.012],['H.',.007],[',',.006],['and',.005],['said',.004],['was',.004]];
+let cur=0, timer=null, run=[];
+
+SCENES.forEach((sc,i)=>{ const b=document.createElement('button'); b.id='tab'+i; b.innerHTML=sc.name; b.onclick=()=>setScene(i); $('tabs').appendChild(b); });
+
+/* ---------- text scenes ---------- */
+function regen(){ const sc=SCENES[cur], s=ST[cur]; run=generate(s.wm ? sc.rule : 'none', s.delta, sc.key, T_LEN, s.seed); }
+function renderText(){
+  const sc=SCENES[cur], s=ST[cur], n=s.shown, rule = s.wm ? sc.rule : 'none';
+  $('wOff').setAttribute('aria-pressed', String(!s.wm)); $('wOn').setAttribute('aria-pressed', String(s.wm));
+  $('spSlow').setAttribute('aria-pressed', String(s.speed==='slow')); $('spFast').setAttribute('aria-pressed', String(s.speed==='fast'));
+  $('dCtl').hidden = sc.rule!=='push' || !s.wm;
+  $('delta').value=s.delta; $('dOut').innerHTML = s.delta.toFixed(1)+' &middot; odds &times;'+Math.exp(s.delta).toFixed(1);
+  $('bPlay').innerHTML = timer ? ICON.pause+'Pause' : (n>=T_LEN ? ICON.again+'Replay' : ICON.play+(n?'Resume':'Play'));
+  // text
+  const box=$('tokens');
+  if (!n) box.innerHTML='<span class="hint">Press Play: the model writes one word at a time.</span>';
+  else {
+    let html='';
+    for (let i=0;i<n;i++){ const o=run[i], w=display(run,i);
+      html += (w==='.'?'':' ') + '<span class="tk '+(o.green?'gt':'rt')+(o.forced?' forced':'')+(i===n-1?' last':'')+'">'+w+'</span>'; }
+    box.innerHTML=html; box.scrollTop=box.scrollHeight;
+  }
+  renderNext(rule, n);
+  // detector
+  const seen=run.slice(0,n), G=seen.filter(o=>o.green).length, z = n ? (G-GAMMA*n)/Math.sqrt(n*GAMMA*(1-GAMMA)) : 0;
+  $('z').innerHTML = fmtZ(z);
+  $('kT').textContent=n; $('kG').textContent=G; $('kE').textContent=(GAMMA*n).toFixed(1); $('kP').innerHTML = n ? pvalHTML(z) : '&ndash;';
+  const showF = rule==='ban'; $('kFdt').classList.toggle('hide',!showF); $('kF').classList.toggle('hide',!showF); $('kF').textContent=seen.filter(o=>o.forced).length;
+  const v=$('verdict'); if (!n){v.textContent='waiting';v.className='pill';} else if (z>4){v.textContent='Watermark detected';v.className='pill on';} else {v.textContent='Not enough evidence';v.className='pill';}
+  drawZ(seen);
+}
+function renderNext(rule, n){
+  if (!n){
+    $('nextH').innerHTML='At each word you will see the words the model was choosing between.';
+    $('cands').innerHTML=''; $('nextN').innerHTML=''; return;
+  }
+  const o=run[n-1], K=7, shown=o.cands.slice(0,K), pickIn=shown.some(c=>c.pick);
+  $('nextH').innerHTML='Word '+n+': the model was choosing what follows <b>'+Q(o.prev==='.'?'.':o.prev)+'</b>'+(rule==='none'?'':' &middot; the split is seeded by this word');
+  let html = shown.map(c=>{
+    const cls='c '+(c.g?'gc':'rc')+(rule==='ban'&&!c.g?' banned':'')+(rule==='push'&&!c.g?' down':'')+(c.pick?' pick':'');
+    const pr = rule==='none' ? pct(c.p) : pct(c.p)+' &rarr; '+pct(c.q);
+    return '<div class="'+cls+'"><span class="cw">'+(c.w==='.'?'(end of sentence)':c.w)+'</span><span class="cp">'+pr+'</span></div>';
+  }).join('');
+  const more=o.cands.length-shown.length;
+  if (more>0) html+='<div class="c more">+'+more+' more</div>';
+  if (o.forced) html+='<div class="c gc pick"><span class="cw">'+o.w+'</span><span class="cp">forced</span></div>';
+  else if (!pickIn) { const c=o.cands.find(c=>c.pick); html+='<div class="c '+(c.g?'gc':'rc')+' pick"><span class="cw">'+c.w+'</span><span class="cp">'+(rule==='none'?pct(c.p):pct(c.p)+' &rarr; '+pct(c.q))+'</span></div>'; }
+  $('cands').innerHTML=html;
+  const w=Q(o.w==='.'?'.':o.w);
+  let note;
+  if (rule==='none') note='No rule: the model draws freely, and about half its words land in green by chance.';
+  else if (rule==='ban') note = o.forced
+      ? '<span class="r">Every word it wanted was red</span>, so all were banned and the ban forced a random green word: '+w+'. The text breaks.'
+      : '<span class="r">Red</span> words are <b>banned</b> (crossed out). The model draws only among <span class="g">green</span> ones and writes '+w+'.';
+  else {
+    const odds='&times;'+Math.exp(ST[cur].delta).toFixed(1), anyGreen=o.cands.some(c=>c.g);
+    if (!anyGreen) note='No green word can follow '+Q(o.prev)+' here, so the push changes nothing: the model writes '+w+'.';
+    else if (o.green) note='<span class="g">Green</span> words get odds '+odds+'; <span class="r">red</span> words stay allowed but lose share. The model writes '+w+', a green word.';
+    else note='<span class="g">Green</span> words get odds '+odds+', but the model was sure of '+w+': it stays, as a <span class="r">red</span> word.';
+  }
+  $('nextN').innerHTML=note;
+}
+function drawZ(seen){
+  const W=360,H=230,m={l:30,r:10,t:26,b:22},pw=W-m.l-m.r,ph=H-m.t-m.b; const zs=[]; let G=0;
+  seen.forEach((o,i)=>{ if(o.green) G++; const T=i+1; zs.push((G-GAMMA*T)/Math.sqrt(T*GAMMA*(1-GAMMA))); });
+  const ymax=Math.max(6,Math.ceil(Math.max(0,...zs)+0.5)), ymin=-3, X=t=>m.l+pw*t/T_LEN, Y=z=>m.t+ph*(1-(z-ymin)/(ymax-ymin));
+  let s='<line class="thr" x1="'+m.l+'" x2="'+(m.l+24)+'" y1="10" y2="10"/><text class="thrl" x="'+(m.l+30)+'" y="14">detection threshold, z = 4</text>';
+  [0,4,ymax].forEach(v=>{ s+='<text x="'+(m.l-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'</text>'; });
+  s+='<line class="ax" x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(0)+'" y2="'+Y(0)+'"/><line class="thr" x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(4)+'" y2="'+Y(4)+'"/>';
+  s+='<text x="'+(W-m.r)+'" y="'+(H-5)+'" text-anchor="end">words written</text>';
+  if (zs.length) s+='<polyline class="ln" points="'+zs.map((z,i)=>X(i+1).toFixed(1)+','+Y(z).toFixed(1)).join(' ')+'"/>';
+  $('zc').innerHTML=s;
+}
+function stop(){ if (timer){ clearTimeout(timer); timer=null; } }
+function tick(){ const s=ST[cur]; s.shown++; if (s.shown>=T_LEN){ s.shown=T_LEN; timer=null; renderText(); return; } renderText(); timer=setTimeout(tick, SPEED[s.speed]); }
+function play(){
+  if (SCENES[cur].view!=='text') return;
+  const s=ST[cur];
+  if (timer){ stop(); renderText(); return; }
+  if (s.shown>=T_LEN) s.shown=0;
+  timer=setTimeout(tick, 10); renderText();
+}
+
+/* ---------- Barack scenes ---------- */
+(function(){ const v=$('vstrip'); for(let i=0;i<160;i++){const c=document.createElement('i'); c.style.setProperty('--d',(i%80)*3+'ms'); v.appendChild(c);} })();
+function isGreen(key, prev, w){ return hash2(key ^ shash(prev.toLowerCase()), shash(w.toLowerCase()))/4294967296 < GAMMA; }
+function renderBarack(){
+  const sc=SCENES[cur], s=ST[cur], key=BARACK_KEYS[s.keyIdx % BARACK_KEYS.length];
+  const flags=CANDS.map(([w])=>isGreen(key,'Barack',w)), p=CANDS.map(c=>c[1]);
+  let q;
+  if (sc.rule==='ban'){ const Z=p.reduce((a,x,i)=>a+(flags[i]?x:0),0); q=p.map((x,i)=>flags[i]?x/Z:0); }
+  else { const a=Math.exp(s.delta), Z=p.reduce((acc,x,i)=>acc+x*(flags[i]?a:1),0); q=p.map((x,i)=>x*(flags[i]?a:1)/Z); }
+  let pick=0; q.forEach((x,i)=>{ if(x>q[pick]) pick=i; });
+  const word=CANDS[pick][0], obamaGreen=flags[0], ok=pick===0;
+  $('keyTxt').innerHTML='Key '+(s.keyIdx % BARACK_KEYS.length + 1)+': &ldquo;Obama&rdquo; is '+(obamaGreen?'<span class="g">green</span>':'<span class="r">red</span>');
+  $('bdCtl').hidden = sc.rule!=='push';
+  $('bdelta').value=s.delta; $('bdOut').innerHTML = s.delta.toFixed(1)+' &middot; odds &times;'+Math.exp(s.delta).toFixed(1);
+  const slot=$('slot'); slot.textContent=word; slot.className='slot '+(flags[pick]?'gt':'rt');
+  [...$('vstrip').children].forEach((c,i)=>c.classList.toggle('g', isGreen(key,'Barack','v'+i)));
+  const scale=Math.max(...p,...q);
+  $('bars').innerHTML='<div class="bhead"><span>next word</span><span>dashed: the model alone &middot; solid: after the '+(sc.rule==='ban'?'ban':'push')+'</span><span>probability</span></div>'+
+    CANDS.map(([w],i)=>'<div class="brow'+(sc.rule==='ban'&&!flags[i]?' ban':'')+'"><span class="w '+(flags[i]?'gt':'rt')+'">'+w+'</span><div class="track"><div class="ghost" style="width:'+(100*p[i]/scale)+'%"></div><div class="fill '+(flags[i]?'gf':'rf')+'" style="width:'+(100*q[i]/scale)+'%"></div></div><span class="v">'+pct(p[i])+' &rarr; <b>'+pct(q[i])+'</b></span></div>').join('');
+  const vc=$('vcard'); vc.className='verdict '+(ok?'ok':'bad');
+  if (sc.rule==='ban') vc.innerHTML = obamaGreen
+    ? '<div class="big">Fine</div><p>&ldquo;Obama&rdquo; is green, so the ban does not touch it. The model writes &ldquo;Obama&rdquo;.</p><p class="num">The key was lucky this time. Press New key.</p>'
+    : '<div class="big">Broken</div><p>&ldquo;Obama&rdquo; is red, so it is banned. The model has to write <b>&ldquo;'+word+'&rdquo;</b>, a word it gave '+pct(p[pick])+'.</p><p class="num">And a human would write &ldquo;Obama&rdquo; too, so this word could never prove anything.</p>';
+  else vc.innerHTML = ok
+    ? '<div class="big">Fine</div><p>'+(obamaGreen?'&ldquo;Obama&rdquo; is green: the push makes it even more likely.':'&ldquo;Obama&rdquo; is red, but the green words started at '+pct(p.reduce((a,x,i)=>a+(flags[i]?x:0),0))+' in total. Even odds &times;'+Math.exp(s.delta).toFixed(1)+' cannot beat 96%.')+'</p><p class="num">Chance of writing &ldquo;Obama&rdquo;: 96% &rarr; <b>'+pct(q[0])+'</b></p>'
+    : '<div class="big">Broken</div><p>At &delta; = '+s.delta.toFixed(1)+' the push is so strong that it acts like the ban: the model writes <b>&ldquo;'+word+'&rdquo;</b>.</p><p class="num">That is why &delta; stays moderate (the paper uses 2).</p>';
+}
+
+/* ---------- switching ---------- */
+function render(){
+  const sc=SCENES[cur];
+  SCENES.forEach((_,i)=>$('tab'+i).setAttribute('aria-pressed', String(i===cur)));
+  $('lede').innerHTML=sc.lede;
+  $('vText').hidden = sc.view!=='text'; $('vBarack').hidden = sc.view!=='barack';
+  if (sc.view==='text') renderText(); else renderBarack();
+}
+function setScene(i){ stop(); cur=i; if (SCENES[i].view==='text') regen(); render(); }
+function setWm(on){ stop(); ST[cur].wm=on; regen(); render(); }
+function setSpeed(sp){ ST[cur].speed=sp; render(); }
+$('wOff').onclick=()=>setWm(false); $('wOn').onclick=()=>setWm(true);
+$('spSlow').onclick=()=>setSpeed('slow'); $('spFast').onclick=()=>setSpeed('fast');
+$('delta').oninput=e=>{ stop(); ST[cur].delta=+e.target.value; regen(); render(); };
+$('bdelta').oninput=e=>{ ST[cur].delta=+e.target.value; render(); };
+$('bPlay').onclick=play;
+$('bAll').onclick=()=>{ stop(); ST[cur].shown=T_LEN; render(); };
+$('bNew').onclick=()=>{ stop(); ST[cur].seed++; ST[cur].shown=0; regen(); render(); };
+$('bKey').onclick=()=>{ ST[cur].keyIdx++; render(); };
+function fullscreen(){ try{ if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else document.exitFullscreen().catch(()=>{}); }catch(e){} }
+document.addEventListener('keydown', e=>{
+  if (e.metaKey||e.ctrlKey||e.altKey) return;
+  const k=e.key, sc=SCENES[cur], s=ST[cur];
+  if (k>='1'&&k<='4'){ setScene(+k-1); return; }
+  if (k==='f'||k==='F'){ fullscreen(); return; }
+  if (k==='ArrowUp'||k==='ArrowDown'){ if (sc.rule==='push'){ e.preventDefault(); s.delta=Math.max(0,Math.min(8,s.delta+(k==='ArrowUp'?0.5:-0.5))); if (sc.view==='text'){ stop(); regen(); } render(); } return; }
+  if (sc.view==='text'){
+    if (k===' '||k==='Enter'||k==='PageDown'||k==='ArrowRight'){ e.preventDefault(); play(); }
+    else if (k==='e'||k==='E'||k==='End'){ stop(); s.shown=T_LEN; render(); }
+    else if (k==='w'||k==='W'){ setWm(!s.wm); }
+    else if (k==='s'||k==='S'){ setSpeed(s.speed==='slow'?'fast':'slow'); }
+    else if (k==='n'||k==='N'){ stop(); s.seed++; s.shown=0; regen(); render(); }
+    else if (k==='r'||k==='R'||k==='ArrowLeft'||k==='PageUp'){ e.preventDefault(); stop(); s.shown=0; render(); }
+  } else {
+    if (k===' '||k==='Enter'||k==='n'||k==='N'||k==='PageDown'||k==='ArrowRight'){ e.preventDefault(); s.keyIdx++; render(); }
+    else if (k==='ArrowLeft'||k==='PageUp'){ e.preventDefault(); s.keyIdx=Math.max(0,s.keyIdx-1); render(); }
+  }
+});
+setScene(0);
+})();
+</script>
