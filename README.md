@@ -2,7 +2,7 @@
 
 # Watermarking LLMs
 
-### A reproduction of *A Watermark for Large Language Models* (Kirchenbauer et al., ICML 2023), and two extensions
+### A reproduction of *A Watermark for Large Language Models* (Kirchenbauer et al., ICML 2023), and extensions
 
 MFE 230ZB – Generative AI and Causality · UC Berkeley MFE · Fall 2026
 
@@ -10,191 +10,197 @@ Instructor: Prof. Ali Kakhbod
 
 **Piero Pelosi, Romain Almeida, Elias Roubache**
 
-[Results report](RESULTS.md) · [Notebook](watermark.ipynb) · [Paper](https://arxiv.org/abs/2301.10226) · [Official code](https://github.com/jwkirchenbauer/lm-watermarking)
+[Paper](https://arxiv.org/abs/2301.10226) · [Official code](https://github.com/jwkirchenbauer/lm-watermarking) · [Presentation](presentation/main.pdf) · [Notebook](watermark.ipynb)
 
 </div>
 
 ---
 
-## TL;DR
+## Live demo
 
-1. **The reproduction matches the paper.** Our green lists are bit-identical to the official code (1,000 of 1,000 contexts for OPT, 200 of 200 for Qwen). Headline setting (OPT-1.3B, γ = 0.5, δ = 2): TPR at z = 4 is 0.986 [0.971, 0.993] against the paper's 0.984, with no false positive on 1,000 human texts. Table 8: 11 of 12 rows agree with the paper within 95% intervals.
-2. **The T5 attack matches once the paper's one-word rule is followed.** The single-word T5 attack reproduces Table 9 within 95% CIs from ε = 0.3 at z = 5. At z = 4 our attack is slightly stronger (ε = 0.5: 0.020 vs 0.094), and at ε = 0.1 our watermark is more robust (0.990 vs 0.819).
-3. **Entropy decides.** On news a watermarked text reaches z = 4 after a median of 24 tokens. On code it takes 188 tokens, and 49% of functions never get there in 200 tokens; short factual answers are essentially never detectable. Instruction tuning lowers the model's entropy, but news detection is unchanged (TPR at 1% FPR 0.990 vs 0.995); the cost shows up in quality instead. Theorem 4.2 stays a valid bound when computed on the distribution actually sampled, and is looser there.
-4. **The watermark can change how long texts are, depending on the key.** Under our key the end-of-text token is green after a period while the usual next token (newline) is red, so 16% of watermarked generations stop before 50 tokens, against 6% without the watermark. Three other keys show no such effect.
-5. **A 2026 attacker.** One call to a free 1.5B chat model (Qwen2.5-1.5B-Instruct) removes about as much watermark per unit of meaning lost as the paper's T5 attack, which needs 60–140 sequential T5 calls. At a calibrated 1% false-positive rate the paraphraser is clearly stronger (0.435 vs 0.81 still detected at similarity ≈ 0.85).
-6. **Copy-paste.** A 60-token watermarked span hidden in a 600-token human document is caught 11.5% of the time by the whole-text test and 86.5% of the time by a sliding-window test (WinMax), both at 1% FPR.
+<p align="center"><a href="https://pieropls.github.io/230ZB/presentation/watermark-live.html"><img src="presentation/demo.png" width="820" alt="The live demo: a watermarked text written word by word, with the detector's z-score"></a></p>
 
-Square brackets are 95% intervals: Wilson for proportions, bootstrap for medians. All details are in [RESULTS.md](RESULTS.md).
+<p align="center"><b><a href="https://pieropls.github.io/230ZB/presentation/watermark-live.html">Open the live demo</a></b> · one page in your browser, nothing to install</p>
 
----
+The page writes a text one word at a time and runs the detector as it goes. Four tabs:
 
-## Context
+| tab | what it shows |
+|---|---|
+| **Algorithm 1** | The hard rule. Before each word, the previous word and a secret key split the vocabulary in half; red words are banned. Press Play and watch the z-score cross 4. Switch to *No watermark*: it stays near 0. |
+| **Barack: problem** | After "Barack" the model is 96% sure of "Obama". If the key makes "Obama" red, the ban forces a word the model barely wanted. Try *New key*. |
+| **Algorithm 2** | The soft rule. Nothing is banned: green words get a bonus δ (slider). Where the model hesitates, green wins; where it is sure, almost nothing changes. |
+| **Barack: solved** | Same red "Obama": the push only lowers it from 96% to 92%, so the sentence survives. |
 
-Kirchenbauer et al. (2023) propose a watermark that a language model can embed in its text at generation time without any change to the model. Before each token, the previous token seeds a pseudo-random split of the vocabulary into a "green" and a "red" list, and the green logits get a small bonus δ. Human text uses green tokens about a fraction γ of the time; watermarked text uses them more often. Anyone holding the key can therefore count green tokens and run a one-sided z-test, without access to the model. The paper shows near-perfect detection after about 200 tokens on OPT-1.3B, a quality cost that depends on δ and γ, a theorem linking detectability to the model's entropy, and robustness to a T5 word-replacement attack.
-
-The idea is now in production. Since August 2026 Anthropic watermarks Claude's text with a variant of SynthID-Text, a scheme from the same family ([announcement](https://www.anthropic.com/news/claude-text-watermark)). This project reproduces the original paper on its own setup and tests two questions a deployed watermark faces: where it is weak (low-entropy text: code, short answers, chat-tuned models) and what a 2026 attacker can do (paraphrase with a small open model, paste a watermarked span into human text).
+The words come from a small toy language model (277 words), so the page works offline. The watermark itself is the paper's: seeded split, ban or push, z-test. Keys: 1–4 tabs, space play, W watermark on/off, S speed, N new text, F full screen.
 
 ---
 
-## Method
+## In short
 
-**Green list.** For vocabulary size $|V|$ and previous token $s^{(t-1)}$, a generator seeded with $15485863 \cdot s^{(t-1)}$ permutes the vocabulary; the first $\gamma |V|$ entries are green ($G_t$).
+- **The paper.** A model can sign its own text. While writing, it favours a secret half of the vocabulary that changes at every word. Anyone with the key counts these "green" tokens and runs a z-test, without the model, its API or the prompt.
+- **Reproduction.** With our own code on the paper's setup:
+  - 98.6% of watermarked texts are detected at z = 4 (paper: 98.4%), and none of 1,000 human texts is flagged.
+  - 11 of 12 error-rate settings (Table 8) match within our 95% intervals.
+  - Our green lists are identical to the official code.
+- **Extension 1, entropy decides.** News is detected after a median of 24 tokens, code after 188 (49% of functions never within 200 tokens), and short factual answers never.
+- **Extension 2, a 2026 attacker.** One prompt to a free 1.5B chat model removes more of the watermark than the paper's T5 attack at the same meaning kept. Still detected at 1% false positives: 43.5% after the rewrite, against 81% after T5.
+- **Extension 3, copy-paste.** Take a 60-token watermarked passage inside a 600-token human text. The whole-text test catches it 11.5% of the time; a sliding window (WinMax, from the authors' follow-up) catches it 86.5% of the time.
+- **Extension 4, a side effect of the key.** Under our key, the watermark makes texts stop early: 16% end before 50 tokens, against 6% without it.
 
-**Soft watermark.** With logits $l_k$ and bias $\delta$, the next token is sampled from
+Square brackets below are 95% intervals: Wilson for rates, bootstrap for medians. [RESULTS.md](RESULTS.md) has every table in full. [presentation/NUMBERS.md](presentation/NUMBERS.md) traces every number on the slides to its source.
 
-$$\hat p_k = \frac{\exp\big(l_k + \delta \cdot \mathbf{1}[k \in G_t]\big)}{\sum_i \exp\big(l_i + \delta \cdot \mathbf{1}[i \in G_t]\big)}.$$
+---
 
-**Detection.** For a text of $T$ tokens with $|s|_G$ green tokens,
+## The paper in brief
 
-$$z = \frac{|s|_G - \gamma T}{\sqrt{T\gamma(1-\gamma)}},$$
+**Why a watermark.** Classifiers that guess "human or AI" from style have no guaranteed error rate, and they get worse as models improve. OpenAI's AI Text Classifier (January 2023) caught 26% of AI text and flagged 9% of human text. It was withdrawn in July 2023. A watermark is put in on purpose while the model writes, so the test knows exactly what to look for. In the paper, 98.4% of watermarked texts are detected at z = 4, and the test fixes the false-alarm rate at about 3 in 100,000.
 
-and the text is flagged when $z > 4$ (one-sided $p \approx 3 \times 10^{-5}$).
+### Algorithm 1: ban half the vocabulary
 
-**Spike entropy and Theorem 4.2.** With $\alpha = e^{\delta}$, the spike entropy of a distribution $p$ is $S(p, z) = \sum_k \frac{p_k}{1 + z p_k}$ with modulus $z^\ast = \frac{(1-\gamma)(\alpha-1)}{1+(\alpha-1)\gamma}$. If the average spike entropy along a text is at least $S^\ast$, the expected number of green tokens satisfies
+**Generation** (needs the model and the key):
 
-$$\mathbb{E}|s|_G \ge \frac{\gamma \alpha T}{1 + (\alpha - 1)\gamma} S^\ast .$$
+0. **Tokenize.** Prompt and text become token ids (for OPT, integers from 0 to 50,264).
+1. **Run the model.** It gives a probability to each of the 50,265 tokens, as any LLM does. Nothing changes here.
+2. **Hash.** A function of the secret key and the *previous* token's id returns a seed. In the official code, seed = 15,485,863 × id. For the first word, the previous token is the last token of the prompt.
+3. **Random split.** A pseudo-random generator started from that seed splits the whole vocabulary into a green half and a red half. The split looks random, but the same seed always gives the same split.
+4. **Ban and draw.** Red tokens get probability 0. The next token is drawn from the green ones.
+5. **Loop.** The new token becomes the previous token. Go back to step 1.
 
-The paper evaluates $S$ on the raw distribution $\mathrm{softmax}(l)$. Its code, like ours, adds δ before dividing by the sampling temperature τ = 0.7, so the distribution actually sampled is the watermark with bias δ/τ applied to $\mathrm{softmax}(l/\tau)$. Extension 1a recomputes the bound on that distribution.
+**Detection** (needs only the text and the key):
+
+0. **Tokenize** with the same tokenizer.
+1. **Rebuild the splits.** For each token, hash the previous token with the key, rebuild the same split, and read the token's colour. This works on any slice of the text.
+2. **Count** the green tokens: $|s|_G$ out of $T$.
+3. **Test.** $H_0$: the writer did not know the lists (a human, or another model). Then each token is green with probability 1/2, so $|s|_G \sim \mathrm{Binomial}(T, 1/2)$ and
+
+$$z = \frac{|s|_G - T/2}{\sqrt{T}/2}.$$
+
+If $z > 4$, we reject $H_0$: the text is watermarked. A human text gets there with probability $3.2 \times 10^{-5}$.
+
+An all-green text has $z = \sqrt{T}$, so 16 tokens are enough. Editing one token turns at most two tokens red: itself, and the next one, whose split it seeds. So 200 edits on 1,000 tokens still leave $z \approx 6.3$.
 
 ```mermaid
 flowchart LR
-  subgraph G["Generation (needs the model and the key)"]
-    direction TB
-    P["prompt + tokens so far"] --> L["language model logits"]
-    L --> B["add δ to the green list,<br/>seeded by the previous token"]
-    B --> S["divide by temperature, sample"]
-    S -->|"next token"| P
+  subgraph GEN["Generation: model + key"]
+    direction LR
+    G0["0 tokenize"] --> G1["1 model: a probability<br/>for every token"]
+    G1 --> G2["2 hash(key, previous token)<br/>= seed"]
+    G2 --> G3["3 seed → green / red split"]
+    G3 --> G4["4 ban red, draw green"]
+    G4 -->|"5 new token = previous token"| G1
   end
-  subgraph D["Detection (needs only the key)"]
-    direction TB
-    X["text"] --> K["tokenize"]
-    K --> C["count green tokens,<br/>rebuilding each green list"]
-    C --> Z["z-score; z > 4 = watermarked"]
+  subgraph DET["Detection: key only"]
+    direction LR
+    D0["0 tokenize"] --> D1["1 rebuild each split,<br/>colour each token"]
+    D1 --> D2["2 count green tokens"]
+    D2 --> D3["3 z-test: z > 4 = watermarked"]
   end
-  G -->|"published text"| D
+  GEN -->|"published text"| DET
 ```
+
+### Algorithm 2: push instead of ban
+
+The ban breaks where the model has no real choice. After "Barack" the model puts almost all its probability on "Obama". If "Obama" is red, the ban forces "Hussein" or "and". Code and memorised quotes behave the same way. A human would write the same thing there anyway, so these tokens prove nothing, and forcing a different one wrecks the text.
+
+Algorithm 2 keeps every token allowed and adds a bonus $\delta$ to the logits of the green tokens, a share $\gamma$ of the vocabulary:
+
+$$\hat p_k = \frac{\exp\big(l_k + \delta \cdot \mathbf{1}[k \in G]\big)}{\sum_i \exp\big(l_i + \delta \cdot \mathbf{1}[i \in G]\big)}.$$
+
+A green token's odds are multiplied by $e^\delta$ (×7.4 at δ = 2). Where the model hesitates, green wins; where it is sure, almost nothing changes. Detection is the same count, with $\gamma$ in place of 1/2:
+
+$$z = \frac{|s|_G - \gamma T}{\sqrt{T\gamma(1-\gamma)}}.$$
+
+The price is that the signal now comes only from tokens where the model had a choice. Theorem 4.2 makes this precise. Let $S^\ast$ be the average spike entropy along the text, a measure of how spread the model's next-token probabilities are. Then
+
+$$\mathbb{E}|s|_G \ge T \cdot c \cdot S^\ast,$$
+
+with $c = 0.88$ at γ = 0.5, δ = 2. In the paper's main setting this bound guarantees 142.2 green tokens out of 200, and 159.5 are observed. Low-entropy text such as code or short answers therefore carries little watermark. That is Extension 1.
+
+The idea has reached production. In August 2026 Anthropic [announced](https://www.anthropic.com/news/claude-text-watermark) that Claude will watermark its text with a version of SynthID-Text, a scheme from the same family. The announcement says the watermark is less reliable on short, factual or code text.
 
 ---
 
-## Results
+## What we did
 
 ### Reproduction
 
-**§4.1 headline** (γ = 0.5, δ = 2, multinomial sampling, T = 200 ± 5, 497 texts):
+We ran the same experiments as the paper with our own code:
 
-| quantity | paper | ours |
+- C4 news prompts, with OPT-1.3B writing at temperature 0.7 and texts of 200 ± 5 tokens.
+- OPT-2.7B as the quality judge.
+- The T5-Large word-swap attack, rebuilt from the paper's description because its code was never released.
+
+The full run took about 20 hours on one laptop (Apple M5 Pro, 24 GB). First check: our green lists are identical to the official code on 1,000 random contexts (200 for Qwen).
+
+Main setting (γ = 0.5, δ = 2, T = 200; 497 watermarked texts, 1,000 human texts):
+
+| | paper | ours |
 |---|---|---|
-| average spike entropy | 0.807 | 0.813 |
-| Theorem 4.2 lower bound on the green count | 142.2 | 143.2 |
-| observed mean green count | 159.5 | 158.3 [157.5, 159.2] |
-| TPR at z = 4 | 0.984 | 0.986 [0.971, 0.993] |
-| TPR at z = 4, 4-beam search | 0.996 | 1.000 [0.975, 1.000] |
-| FPR at z = 4 on 1,000 human texts | 0 | 0 [0, 0.004] |
+| detected at z = 4 | 98.4% | 98.6% [97.1, 99.3] |
+| human texts flagged | 0 | 0 of 1,000 |
+| mean green tokens (of 200) | 159.5 | 158.3 [157.5, 159.2] |
+| Theorem 4.2 lower bound | 142.2 | 143.2 |
+| detected at z = 4, 4-beam search (150 texts) | 99.6% | 100% [97.5, 100] |
 
-**Table 8** (error rates at z = 4; FPR is 0 [0, 0.004] in every row). "Verdict" compares the paper's value with our 95% interval: *consistent* if it lies inside, *different* if the two intervals (the paper's from its own sample size) do not overlap, *borderline* otherwise.
+<p align="center"><img src="figures/head_z_hist.png" width="620" alt="z-scores of watermarked and human texts"></p>
 
-| sampling | δ | γ | n | TPR z = 4, ours | paper | TPR z = 5, ours | paper | verdict (z = 4 / z = 5) |
-|---|---|---|---|---|---|---|---|---|
-| multinomial | 1 | 0.50 | 300 | 0.700 [0.646, 0.749] | 0.767 | 0.367 [0.314, 0.423] | 0.504 | borderline / different |
-| multinomial | 1 | 0.25 | 300 | 0.777 [0.726, 0.820] | 0.729 | 0.537 [0.480, 0.592] | 0.482 | consistent |
-| multinomial | 2 | 0.50 | 497 | 0.986 [0.971, 0.993] | 0.984 | 0.980 [0.963, 0.989] | 0.978 | consistent |
-| multinomial | 2 | 0.25 | 300 | 1.000 [0.987, 1.000] | 0.994 | 1.000 [0.987, 1.000] | 0.988 | consistent |
-| multinomial | 5 | 0.50 | 300 | 1.000 [0.987, 1.000] | 0.996 | 1.000 [0.987, 1.000] | 0.992 | consistent |
-| multinomial | 5 | 0.25 | 300 | 1.000 [0.987, 1.000] | 1.000 | 1.000 [0.987, 1.000] | 0.998 | consistent |
-| 8-beam | 1 | 0.50 | 100 | 0.850 [0.767, 0.907] | 0.873 | 0.750 [0.657, 0.825] | 0.812 | consistent |
-| 8-beam | 1 | 0.25 | 100 | 0.820 [0.733, 0.883] | 0.819 | 0.750 [0.657, 0.825] | 0.770 | consistent |
-| 8-beam | 2 | 0.50 | 150 | 0.993 [0.963, 0.999] | 0.992 | 0.987 [0.953, 0.996] | 0.984 | consistent |
-| 8-beam | 2 | 0.25 | 150 | 0.993 [0.963, 0.999] | 0.994 | 0.987 [0.953, 0.996] | 0.990 | consistent |
-| 8-beam | 5 | 0.50 | 100 | 1.000 [0.963, 1.000] | 1.000 | 1.000 [0.963, 1.000] | 1.000 | consistent |
-| 8-beam | 5 | 0.25 | 100 | 1.000 [0.963, 1.000] | 1.000 | 1.000 [0.963, 1.000] | 1.000 | consistent |
+Across Table 8's 12 settings of δ, γ and decoding, 11 match the paper within our 95% intervals. Against the T5 attack (Table 9) the curves have the same shape: from 30% of words swapped on, our numbers agree with the paper's or come close.
 
-<p align="center"><img src="figures/fig2_tradeoff.png" width="760" alt="Fig. 2: mean z-score against oracle perplexity"></p>
-<p align="center"><em>Fig. 2. Left: a smaller green list gives a higher z at the same perplexity; γ = 0.1 is Pareto-best, as in the paper. Right: 8-beam search reaches z = 11.5 at δ = 2 with perplexity 1.63, against 1.44 without the watermark.</em></p>
+What we could not reproduce:
 
-**Table 9, T5 span attack** (γ = 0.5, δ = 2; each replacement is exactly one word, as the paper describes; 100 texts; AUC against the unattacked human texts):
+- **One weak-push setting detects less.** Multinomial sampling, δ = 1, γ = 0.5: 0.37 [0.31, 0.42] detected at z = 5, against the paper's 0.50. It may depend on the key; we did not test this.
+- **The lightest T5 attack removes less.** At 10% of words swapped, 0.99 is still detected at z = 4, against 0.82.
+- **Perplexities are slightly higher**, by about 0.1 to 0.3 under multinomial sampling (by 1.7 in one setting, δ = 5 and γ = 0.25), with the same ordering everywhere.
+- **Short answers.** OPT-1.3B cannot do the task, so we used Qwen2.5-1.5B-Instruct. The watermark costs no measurable accuracy (exact match 0.202 → 0.212).
 
-| ε | TPR z = 4, ours | paper | TPR z = 5, ours | paper | AUC, ours (paper) | perplexity, ours (paper) |
-|---|---|---|---|---|---|---|
-| 0.1 | 0.990 [0.946, 0.998] | 0.819 | 0.870 [0.790, 0.922] | 0.577 | 1.000 (0.988) | 9.2 (13.1) |
-| 0.3 | 0.240 [0.167, 0.332] | 0.353 | 0.090 [0.048, 0.162] | 0.127 | 0.996 (0.954) | 16.0 (21.2) |
-| 0.5 | 0.020 [0.006, 0.070] | 0.094 | 0.000 [0, 0.037] | 0.029 | 0.868 (0.838) | 24.8 (28.4) |
-| 0.7 | 0.010 [0.002, 0.054] | 0.039 | 0.000 [0, 0.037] | 0.012 | 0.652 (0.696) | 33.5 (33.9) |
+### Extensions
 
-The attack code was not released, so ours follows the paper's description. Letting T5 fill multi-word spans instead makes the attack much weaker (TPR at z = 4 0.495 at ε = 0.3, 200 texts): the texts grow from 200 to 295 tokens, and z grows with √T at a fixed green fraction.
+The paper leaves four questions open. Each extension takes one:
 
-<p align="center"><img src="figures/fig5_t5_attack.png" width="560" alt="Fig. 5: TPR after the T5 attack against epsilon"></p>
-<p align="center"><em>Fig. 5. Detection after the T5 attack: our single-word and multi-word variants, the paper's values as black hollow markers.</em></p>
+| open question | why it matters | extension |
+|---|---|---|
+| constrained text (code, short answers) | little choice, little signal | 1 |
+| a modern rewrite | the paper attacks with T5 word swaps (2020) | 2 |
+| a watermarked passage pasted into human text | listed as open in the paper's conclusion | 3 |
+| side effects of the key itself | the key fixes the colour of every token pair, "stop" included | 4 |
 
-<p align="center"><img src="figures/fig7_theory.png" width="560" alt="Fig. 7: observed green fraction and the Theorem 4.2 bound against delta"></p>
-<p align="center"><em>Fig. 7. Observed green fraction (0.661 / 0.792 / 0.948 at δ = 1 / 2 / 5; paper ≈ 0.68 / 0.80 / 0.94) and the Theorem 4.2 bound (0.637 / 0.716 / 0.762; paper ≈ 0.63 / 0.71 / 0.76): tight for small δ, conservative for large δ.</em></p>
+**Extension 1: entropy decides.** The push only acts where the model has a choice, so constrained text should carry less signal. This is Theorem 4.2's own prediction. Median tokens to reach z = 4 with OPT-1.3B:
 
-### Extension 1: entropy decides
+- **News** (γ = 0.25, δ = 2): 24 [20, 27].
+- **Code** (same settings): 188 [135, never]. 49% of functions never reach z = 4 within 200 tokens.
+- **Short factual answers** (TriviaQA, greedy, γ = 0.5 as in the paper's Table 10): never, in 99% of cases. At γ = 0.5, a fully green 16-token answer only reaches z = 4 exactly.
 
-**1a. The bound on the distribution actually sampled.** Recomputed on $\mathrm{softmax}(l/\tau)$ with $\alpha = e^{\delta/\tau}$, Theorem 4.2 is still a valid lower bound in all 22 multinomial runs, but it is looser for δ ≥ 2 (γ = 0.5, δ = 2: 0.675 against 0.716 for the paper's version; observed 0.792). Temperature lowers the spike entropy (0.714 vs 0.813) more than the larger effective bias raises the coefficient. The paper's large-δ gap is therefore the bound's own conservatism, not a temperature effect.
+Instruction tuning lowers the model's entropy, yet news detection is unchanged: 0.990 vs 0.995 detected at 1% false positives. The cost moves to quality instead: perplexity rises from 5.67 to 9.55.
 
-<p align="center"><img src="figures/ext1a_bound_vs_observed.png" width="560" alt="Ext. 1a: paper and corrected bounds against the observed green fraction"></p>
+<p align="center"><img src="figures/ext1b_tokens_to_detect.png" width="600" alt="Median tokens to reach z = 4: news, code, short answers"></p>
 
-**1b. News vs code vs short answers** (OPT-1.3B; γ = 0.25, δ = 2 for news and code; TriviaQA greedy, γ = 0.5, δ = 2; 1% FPR thresholds from each domain's own unwatermarked texts):
+**Extension 2: a 2026 attacker.** The watermark lives in pairs of neighbouring tokens. A word swap breaks few pairs; a rewrite breaks most. We attacked the same watermarked texts in two ways: with the paper's T5 swaps, and with one prompt to Qwen2.5-1.5B-Instruct. False positives are calibrated on human texts attacked the same way. "Meaning kept" is the cosine similarity of sentence embeddings, original vs attacked.
 
-| domain | spike entropy (sampled) | TPR at 1% FPR | median tokens to z = 4 | never reach z = 4 |
+| attack | meaning kept | detected at 1% false positives | AUC | model calls |
 |---|---|---|---|---|
-| news (C4) | 0.53 | 0.990 [0.964, 0.997] | 24 [20, 27] | 1% |
-| code (HumanEval) | 0.35 | 0.524 [0.448, 0.599] | 188 [135, never] | 49% [42, 57] |
-| short answers (TriviaQA, up to 16 tokens) | – | – | never | 99% |
+| T5, 30% of words swapped | 0.856 | 81% | 0.995 | 60 to 140 |
+| Qwen, light rewrite | 0.850 | 43.5% | 0.881 | 1 |
+| Qwen, full rewrite | 0.837 | 10% | 0.705 | 1 |
 
-At γ = 0.5 a 16-token answer cannot exceed z = 4 at all, whatever its entropy (the QA row uses greedy decoding, so its entropy and 1%-FPR numbers are not comparable; see RESULTS.md). Code also breaks the z-test's independence assumption: the same (previous token, token) pairs, such as newline followed by indentation, repeat dozens of times. Unwatermarked code therefore has mean z −2.88 instead of about 0, and ignoring repeated pairs restores −0.45.
+Removing the watermark still costs meaning, but it now takes one prompt to a free model.
 
-<p align="center"><img src="figures/ext1b_tokens_to_detect.png" width="620" alt="Ext. 1b: median tokens to reach z = 4"></p>
+<p align="center"><img src="figures/ext2a_removal_frontier.png" width="560" alt="Detection against meaning kept, T5 vs one-prompt rewrite"></p>
 
-**1c. Base vs instruction-tuned model** (Qwen2.5-1.5B vs Qwen2.5-1.5B-Instruct, same architecture and tokenizer; news, γ = 0.25, δ = 2):
+**Extension 3: copy-paste.** We hid one watermarked passage inside a 600-token human document, with thresholds set for 1% false positives on 1,000 human-only documents. Counted over the whole text, the human tokens pull the score back toward chance. A sliding window (WinMax, from the authors' ICLR 2024 follow-up) restores the contrast.
 
-| | base | instruct |
+| watermarked share | whole-text count | sliding window (WinMax) |
 |---|---|---|
-| entropy of the unwatermarked model (nats) | 2.52 | 1.96 |
-| TPR at 1% FPR | 0.995 [0.972, 0.999] | 0.990 [0.964, 0.997] |
-| median tokens to z = 4 | 25 [24, 27] | 27 [24, 29] |
+| 10% (60 tokens) | 11.5% | 86.5% |
+| 25% (150 tokens) | 81.5% | 99.5% |
+| 50% (300 tokens) | 100% | 100% |
 
-Instruction tuning lowers entropy in every domain, yet news detection is indistinguishable. Under the watermark the instruct model's entropy rises from 1.96 to 2.31 nats: the bias pushes it off its confident path. The price is quality: perplexity under the base model rises from 5.67 to 9.55 (25.6 at δ = 4). On code there is no consistent base-vs-instruct difference. On TriviaQA the watermark costs no accuracy (exact match 0.202 → 0.212) and is invisible (answers average 5.8 tokens).
+<p align="center"><img src="figures/ext2b_dilution.png" width="560" alt="Detection of a pasted watermarked passage, whole text vs sliding window"></p>
 
-### Length side effect
+**Extension 4: the key can change when the model stops.** Under our key, after a period the end-of-text token is green, while newline, the usual next token, is red. At δ = 2 this multiplies the chance of stopping by about 2.3. As a result, 16% [14, 18] of watermarked texts end before 50 tokens, against 6% [4, 7] without the watermark. Under three other keys the multiplier is 0.17, 1.18 and 0.32, and text lengths look normal. The paper keeps only texts of 200 ± 5 tokens, which hides this effect.
 
-Under our key, γ = 0.5, δ = 2, 50% of generations reach 195 tokens against 70% without the watermark, and 16% [14, 18] stop before 50 tokens against 6% [4, 7]. The reason: most natural endings come right after a period, and under this key the end-of-text token is green there while newline, the most common continuation, is red. δ = 2 then multiplies the probability of stopping by about 2.3. Under three other keys the multiplier is 0.17, 1.18 and 0.32, and the length distribution is indistinguishable from no watermark. The paper's T = 200 ± 5 filter hides this effect from its detection tables.
+<p align="center"><img src="figures/keys_eos.png" width="680" alt="Text length under four hash keys"></p>
 
-<p align="center"><img src="figures/keys_eos.png" width="720" alt="Length side effect under four hash keys"></p>
-
-### Extension 2: a 2026 attacker
-
-**2a. Paraphrase vs T5.** The same watermarked texts are attacked by T5 (the paper's attack) and by Qwen2.5-1.5B-Instruct asked to edit lightly, paraphrase, or rewrite. False positives are calibrated on human texts attacked the same way; meaning kept is the cosine similarity of MiniLM sentence embeddings.
-
-| attack | meaning kept | TPR at z = 4 | TPR at 1% FPR | AUC |
-|---|---|---|---|---|
-| T5 single-word, ε = 0.3 | 0.856 [0.843, 0.868] | 0.240 [0.167, 0.332] | 0.810 [0.722, 0.875] | 0.995 |
-| T5 single-word, ε = 0.5 | 0.774 [0.757, 0.791] | 0.020 [0.006, 0.070] | 0.110 [0.063, 0.186] | 0.824 |
-| Qwen, light edit | 0.850 [0.828, 0.872] | 0.220 [0.168, 0.282] | 0.435 [0.368, 0.504] | 0.881 |
-| Qwen, paraphrase | 0.848 [0.834, 0.862] | 0.035 [0.017, 0.070] | 0.205 [0.155, 0.266] | 0.773 |
-| Qwen, full rewrite | 0.837 [0.822, 0.852] | 0.015 [0.005, 0.043] | 0.100 [0.066, 0.149] | 0.705 |
-
-At the fixed threshold z = 4, light paraphrase and single-word T5 at matched meaning are indistinguishable (0.22 vs 0.24). At a calibrated 1% FPR the paraphraser is clearly stronger (0.435 vs 0.81). To bring detection down to about 0.1, T5 needs ε = 0.5 and keeps 0.774 of the meaning, while a full rewrite keeps 0.837. Removing the watermark still costs meaning (about 15% of similarity), but it now takes one prompt to a free model.
-
-<p align="center"><img src="figures/ext2a_removal_frontier.png" width="560" alt="Ext. 2a: TPR at 1% FPR against meaning kept"></p>
-
-**2b. Copy-paste dilution.** One watermarked span inside a 600-token human document; thresholds for 1% FPR come from 1,000 human-only documents.
-
-| watermarked share | whole-text z | WinMax (sliding window) |
-|---|---|---|
-| 10% (60 tokens) | 0.115 [0.078, 0.167] | 0.865 [0.811, 0.906] |
-| 25% (150 tokens) | 0.815 [0.755, 0.863] | 0.995 [0.972, 0.999] |
-| 50% (300 tokens) | 1.000 [0.981, 1.000] | 1.000 [0.981, 1.000] |
-
-The window test from the authors' follow-up paper answers the open question in the original paper's conclusion for spans of about 60 tokens or more.
-
-### Limitations
-
-- **One weaker Table 8 row.** Multinomial δ = 1, γ = 0.5 detects less than in the paper (z = 5: 0.367 vs 0.504; the intervals do not overlap). This is plausibly key-specific (last point below) but untested.
-- **T5 at the extremes.** At ε = 0.1 our watermark survives the attack better than in the paper (0.990 vs 0.819), and at ε = 0.5 (z = 4) our attack removes slightly more (0.020 vs 0.094).
-- **Noisy 1%-FPR thresholds in 2a.** Each threshold is the 99th percentile of 100–200 attacked human texts. The AUC column, which uses every negative, supports the main comparison (0.881 for the light paraphrase against 0.995 for T5 at ε = 0.3).
-- **Key-specific null calibration.** For our key, unwatermarked text has mean z −0.20 (human) and −0.37 (model text) at γ = 0.5. Across six keys the mean ranges from −0.52 to +0.71, and repeated token pairs push the standard deviation to 1.03–1.36. The false-positive rate at z = 4 on human text is still 0, but deployed thresholds should be calibrated empirically, as every 1%-FPR number here is.
+Extension numbers follow the presentation. RESULTS.md, the notebook and the figure files use the earlier labels: Extension 1 = 1a–1c, Extension 2 = 2a, Extension 3 = 2b, Extension 4 = the key and length check.
 
 ---
 
@@ -228,6 +234,10 @@ Every generated row stores the green rank of each token rather than a 0/1 flag. 
 | `run.py` | command line for every step: `python run.py list` |
 | `watermark.ipynb` | loads the results, builds every table and figure, shows them next to the paper's |
 | `download.py` | data, models and the official code (pinned commit) |
+| `presentation/main.tex`, `main.pdf` | the class slides (beamer; compiles on Overleaf) |
+| `presentation/make_figures.py` | every slide figure and the opening emails, from `results/` |
+| `presentation/NUMBERS.md` | every number on the slides and where it comes from |
+| `presentation/watermark-live.html` | the live demo: one self-contained page |
 
 ---
 
@@ -279,6 +289,8 @@ python run.py check     # 16 watermarked generations (most with z > 4) and 16 un
 
 The total is about 20 hours, dominated by the T5 attacks and 8-beam search. Sampling on another device draws different random numbers, so a full re-run reproduces the statistics, not the exact texts.
 
+**Slides.** `cd presentation && ../.venv/bin/python make_figures.py` regenerates every slide figure from `results/`. Compile `main.tex` with pdflatex (twice), or upload the `presentation/` folder to Overleaf.
+
 ---
 
 ## Repository layout
@@ -297,7 +309,7 @@ The total is about 20 hours, dominated by the T5 attacks and 8-beam search. Samp
 ├── requirements.txt      pinned versions
 ├── LICENSE
 ├── figures/              18 figures (PNG) and the TriviaQA table
-├── presentation/         class slides (beamer, compiles on Overleaf): main.tex, main.pdf, slide figures, NUMBERS.md
+├── presentation/         slides (main.tex, main.pdf), slide figures, NUMBERS.md, live demo (watermark-live.html)
 └── results/
     ├── prompts_c4.jsonl.gz   2,000 C4 prompts with their human baselines
     ├── raw/                  every generation, attack and perplexity (gzipped JSON lines)
@@ -320,7 +332,7 @@ All listed with their reasons in [RESULTS.md](RESULTS.md#deviations). The main o
 
 ## How Claude was used
 
-We specified the paper, the scope, the extensions and the checks. Claude Code wrote the code and ran the experiments under that specification, and we reviewed the results.
+Claude Code wrote the code and ran the experiments under our specification. We chose the paper, the extensions and the checks, and reviewed every result.
 
 ---
 
@@ -332,5 +344,7 @@ We specified the paper, the scope, the extensions and the checks. Claude Code wr
 - N. Jovanović, R. Staab, M. Vechev. *Watermark Stealing in Large Language Models.* ICML 2024. [arXiv:2402.19361](https://arxiv.org/abs/2402.19361).
 - Data: C4 RealNewsLike ([allenai/c4](https://huggingface.co/datasets/allenai/c4), ODC-BY), [HumanEval](https://huggingface.co/datasets/openai/openai_humaneval), [TriviaQA](https://huggingface.co/datasets/mandarjoshi/trivia_qa).
 - Models: [OPT-1.3B](https://huggingface.co/facebook/opt-1.3b) and [OPT-2.7B](https://huggingface.co/facebook/opt-2.7b), [T5-Large](https://huggingface.co/google-t5/t5-large), [Qwen2.5-1.5B](https://huggingface.co/Qwen/Qwen2.5-1.5B) and [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2). Each dataset and model is used under its own license.
+- OpenAI. *New AI classifier for indicating AI-written text.* January 2023, updated July 2023 (classifier withdrawn). [openai.com](https://openai.com/index/new-ai-classifier-for-indicating-ai-written-text/)
+- Anthropic. *Claude text watermark.* August 2026. [anthropic.com](https://www.anthropic.com/news/claude-text-watermark)
 
 Code in this repository: MIT ([LICENSE](LICENSE)).
