@@ -24,7 +24,7 @@ Rounding is to the precision shown on the slide.
 | 5 | B: 50 green of 62 tokens, chance gives 31, z = 4.8 | `snippets/emails.tex`: detector on sample 83; chance = 0.5 x 62 = 31 |
 | 5 | by chance: 1 in 1.4 million | one-sided p-value of z = 4.83 (`make_figures.py` `odds()`) |
 | 5 (note) | 76 of 128 samples above z = 4, median z 4.3 | `snippets/emails.tex` (`\emailSamplesAbove`, `\emailSamplesMedian`), from `snippets/emails.json` |
-| 5 | August 2026, Anthropic and Claude's watermark (a version of SynthID-Text) | anthropic.com/news/claude-text-watermark (14 Aug 2026). It announces that future Claude models will watermark their text with a version of SynthID-Text, and older models "over the coming months". The slide's "Since August 2026, Anthropic watermarks Claude's text" overstates this |
+| 5 | In August 2026, Anthropic announced that Claude will watermark its text (a version of SynthID-Text) | anthropic.com/news/claude-text-watermark (14 Aug 2026): future Claude models will watermark their text with a version of SynthID-Text; older models "over the coming months" |
 | 6 | integers from 0 to 50,264; 50,265 tokens | OPT vocabulary size, `results/summary/greenlist_equivalence.txt` (V = 50265) |
 | 6 (note) | 15,485,863; h = 1 | `core.py` / official `watermark_processor.py` (simple_1 seeding), RESULTS.md Deviations |
 | 6 (note) | green list of 25,132 ids | formula: int(0.5 x 50,265) |
@@ -32,7 +32,7 @@ Rounding is to the precision shown on the slide.
 | 7 | green with probability 1/2 | Algorithm 1 with gamma = 0.5 |
 | 7 | z > 4; probability 3.2 x 10^-5, about 3 human texts in 100,000 | formula, 1 - Phi(4) = 3.17e-5 |
 | 7 | our 1,000 human texts: none above 4 | `results/summary/headline.csv` (FPR 0 of 1,000); `make_figures.py` `z_null()` |
-| 7 | 16 tokens are enough | formula: all-green text, z = sqrt(T) = 4 at T = 16 (z = 4 exactly; one more green token passes z > 4) |
+| 7 | 16 tokens reach z = 4 | formula: all-green text, z = sqrt(T) = 4 at T = 16 |
 | 7 | one edit turns at most 2 tokens red; 200 edits on 1,000 tokens; z = 6.3 | the paper, Sec. 2 example; z = (600 - 500)/(sqrt(1000)/2) = 6.32 |
 | 7 (note) | about a quarter of the text to get below 4 | formula: at T = 1,000, z < 4 needs fewer than 563 green, so more than 437 red, so at least 219 edits |
 | 7 (figure) | 1,000 human texts; N(0, 1); none above 4; flag z > 4, p = 3.2e-5; attacker z = 6.3 | `make_figures.py` `z_null()`: stored `z` of `results/raw/human/c4` (idx < 1000, gamma 0.5, our key: mean -0.20, sd 1.04, 0 above 4); p-value and 6.3 as on this slide |
