@@ -77,7 +77,7 @@ $$z = \frac{|s|_G - T/2}{\sqrt{T}/2}.$$
 
 If $z > 4$, we reject $H_0$: the text is watermarked. A human text gets there with probability $3.2 \times 10^{-5}$.
 
-An all-green text has $z = \sqrt{T}$, so 16 tokens are enough. Editing one token turns at most two tokens red: itself, and the next one, whose split it seeds. So 200 edits on 1,000 tokens still leave $z \approx 6.3$.
+An all-green text has $z = \sqrt{T}$, so 16 green tokens already reach $z = 4$. Editing one token turns at most two tokens red: itself, and the next one, whose split it seeds. So 200 edits on 1,000 tokens still leave $z \approx 6.3$.
 
 ```mermaid
 flowchart LR
@@ -114,7 +114,7 @@ The price is that the signal now comes only from tokens where the model had a ch
 
 $$\mathbb{E}|s|_G \ge T \cdot c \cdot S^\ast,$$
 
-with $c = 0.88$ at γ = 0.5, δ = 2. In the paper's main setting this bound guarantees 142.2 green tokens out of 200, and 159.5 are observed. Low-entropy text such as code or short answers therefore carries little watermark. That is Extension 1.
+with $c = 0.88$ at γ = 0.5, δ = 2. In the paper's main setting the bound gives at least 142.2 green tokens out of 200 on average; 159.5 are observed. Low-entropy text such as code or short answers therefore carries little watermark. That is Extension 1.
 
 The idea has reached production. In August 2026 Anthropic [announced](https://www.anthropic.com/news/claude-text-watermark) that Claude will watermark its text with a version of SynthID-Text, a scheme from the same family. The announcement says the watermark is less reliable on short, factual or code text.
 
@@ -170,7 +170,7 @@ The paper leaves four questions open. Each extension takes one:
 - **Code** (same settings): 188 [135, never]. 49% of functions never reach z = 4 within 200 tokens.
 - **Short factual answers** (TriviaQA, greedy, γ = 0.5 as in the paper's Table 10): never, in 99% of cases. At γ = 0.5, a fully green 16-token answer only reaches z = 4 exactly.
 
-Instruction tuning lowers the model's entropy, yet news detection is unchanged: 0.990 vs 0.995 detected at 1% false positives. The cost moves to quality instead: perplexity rises from 5.67 to 9.55.
+Instruction tuning lowers the model's entropy, yet news detection is unchanged: at 1% false positives, 0.990 of texts are detected for Qwen2.5-1.5B-Instruct and 0.995 for its base model. The cost moves to quality instead: the watermark raises the instruct model's perplexity from 5.67 to 9.55.
 
 <p align="center"><img src="figures/ext1b_tokens_to_detect.png" width="600" alt="Median tokens to reach z = 4: news, code, short answers"></p>
 
