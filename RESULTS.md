@@ -1,7 +1,7 @@
 # Results
 Piero Pelosi, Romain Almeida, Elias Roubache · MFE 230ZB – Generative AI and Causality · UC Berkeley MFE · Fall 2026 · Instructor: Prof. Ali Kakhbod
 
-Detailed report of the reproduction of Kirchenbauer et al., *A Watermark for Large Language Models* (ICML 2023), and of two extensions. The [README](README.md) has the overview; every number below comes from a file in `results/summary/`, rebuilt by `watermark.ipynb`.
+Detailed report of the reproduction of Kirchenbauer et al., *A Watermark for Large Language Models* (ICML 2023), and of three extensions. The [README](README.md) has the overview; every number below comes from a file in `results/summary/`, rebuilt by `watermark.ipynb`.
 
 Environment: Apple M5 Pro, 24 GB unified memory (`hw.memsize` = 25769803776), macOS 27.0.1, device `mps`, dtype fp16 (logits finite; argmax agreement with fp32 = 0.9996 on 4 prompts, `results/summary/phase0_check.jsonl`). T5-Large in bf16. Python 3.12.5, torch 2.14.1, transformers 5.18.0, numpy 2.5.3, scipy 1.18.1, scikit-learn 1.9.1, extra package `tabulate` (pandas markdown tables).
 
@@ -20,6 +20,7 @@ Green-list equivalence (`results/summary/greenlist_equivalence.txt`): for 1,000 
 - **Length side effect, key-specific**: under our key EOS is green after "." while newline is red, so δ = 2 makes 16% [14, 18] of generations stop before 50 tokens vs 6% [4, 7] without watermark (kept share 0.50 vs 0.70); three other keys are indistinguishable from no watermark.
 - **2a, a 2026 attacker**: at the fixed threshold z = 4, a light Qwen paraphrase and the paper's T5 attack are indistinguishable at matched meaning (0.22 [0.17, 0.28] vs 0.24 [0.17, 0.33] at similarity ≈ 0.85). At a calibrated 1% FPR the paraphraser is clearly stronger (0.435 [0.37, 0.50] vs 0.81 [0.72, 0.88]), and to reach TPR ≈ 0.1 T5 must sacrifice more meaning (similarity 0.774 vs 0.837 for a full paraphrase). Removal still costs meaning, but now takes one call to a free 1.5B model instead of 60-140 T5 calls.
 - **2b, copy-paste**: a 60-token watermarked span in a 600-token human document is caught by the full-text test 11.5% [7.8, 16.7] of the time at 1% FPR and by WinMax (sliding window, authors' 2024 follow-up) 86.5% [81.1, 90.6].
+- **3, the watermark as a filter for sentiment data**: in a synthetic campaign that adds slanted AI texts to buckets of human news, removing the texts flagged at z > 4 undoes 0.95 [0.94, 0.97] of the damage to a FinBERT bucket signal for 200-token watermarked texts, 0.40 at 50 tokens and 0.07 at 25 (where the largest attainable z is 5.0); a full paraphrase brings it to 0.006, and unwatermarked AI text is untouched. Recovery is predicted by the detection rate to within 0.03: escaping the filter is unrelated to sentiment (all 16 intervals cover zero). A threshold calibrated to 1% FPR lifts the 25-token recovery to 0.63 for 20 lost human texts in 5,000; on pasted 60-token passages WinMax recovers 0.66 where the whole-text test recovers nothing.
 
 ## Paper vs ours
 ### §4.1 headline (`results/summary/headline.md`, `figures/head_z_hist.png`, examples in `results/summary/examples.md`)
@@ -88,6 +89,8 @@ Our perplexities sit slightly above the paper's (+0.1 to +0.3 for multinomial, a
 
 ### Fig. 2 (`results/summary/fig2_tradeoff.md`, `figures/fig2_tradeoff.png`)
 Left, multinomial, δ ∈ {0, 1, 2, 5, 10} × γ ∈ {0.1, 0.25, 0.5, 0.75, 0.9} (n = 100-500 per point): smaller γ gives a higher z at the same PPL (δ = 2: γ = 0.1 / 0.25 / 0.5 / 0.75 / 0.9 → z = 10.8 / 11.1 / 8.3 / 5.3 / 3.3 at PPL 6.3 / 6.7 / 6.5 / 5.8 / 5.5; γ = 0.1, δ = 5: z = 32.6 at PPL 13.7), consistent with γ = 0.1 being Pareto-best. Right, γ = 0.5, n = 100 (150 at δ = 2): 8-beam search reaches z = 11.5 at δ = 2 with PPL 1.63 (no watermark 1.44); greedy reaches z = 8.4 at PPL 2.11 (no watermark 1.81). As in the paper, beam search buys a large z at almost no PPL cost. 4 beams: only δ = 2 (z = 11.2, PPL 1.74).
+
+**Against the paper's points** (`figures/fig2_tradeoff_vs_paper.png`, `results/summary/fig2_vs_paper.md`). The paper's Fig. 2 markers were read out of the vector PDFs in its arXiv source (`digitize_fig2.py`; the tick-label fit is exact to 1e-6 and the recovered perplexities match Table 8 to 0.05). Over the 31 settings present in both, our mean z is within 0.78 of the paper's everywhere (median absolute gap 0.22), and in 27 of 31 slightly below it. Perplexity is 0.05-0.35 above the paper's for multinomial sampling at δ ≤ 2, by 1.6-4.6 at δ ≥ 5 with γ ≤ 0.25 (the paper's Table 8 shows the same ordering), and 0.3-1.0 above for greedy and beam search at every δ including 0 (greedy δ = 0: 1.81 vs 1.29), so that offset is in the oracle perplexity run rather than in the watermark. The paper's δ = 0 points sit at z ≈ 0.3-0.6 while ours are at -0.5 to 0: a key-specific null, see *Limitations*.
 
 ### Fig. 3 (`results/summary/fig3_z_vs_T.md`, `figures/fig3_z_vs_T.png`)
 First T at which the mean z exceeds 4: δ = 5 multinomial, γ = 0.1 / 0.25 / 0.5 / 0.75 / 0.9 → 4 / 8 / 22 / 60 / 176 tokens; γ = 0.25, δ = 1 / 2 / 5 / 10 → 124 / 30 / 8 / 6 tokens. 8 beams, γ = 0.25 (n = 100, 150 at δ = 2), δ = 0.5 / 1 / 2 / 5 / 10 → 200 / 58 / 16 / 6 / 6 tokens; mean z > 5 from 88 / 24 / 10 / 10 tokens at δ = 1 / 2 / 5 / 10 (paper: about 35 tokens at δ = 2). As in the paper, beam search detects with far fewer tokens than multinomial sampling at the same δ (δ = 2: 16 vs 30 tokens).
@@ -181,6 +184,8 @@ The TPR-at-1%-FPR intervals cover only the sampling of the positives; the thresh
 
 Only the key where EOS is green after "." *and* its competitors are mostly red stops early: on these 100 prompts its kept share (0.53 [0.43, 0.63]) is clearly below the unwatermarked 0.75 [0.66, 0.83]; its early-stop share (13% [8, 21]) overlaps the unwatermarked 4% [2, 10] at n = 100, but the full-sample comparison above (16% vs 6%, n = 1,000 / 711) is unambiguous. EOS being green alone is not enough: key 32452843 has EOS green, but 82% of the competing continuation mass is green too. The other three keys are indistinguishable from no watermark on both measures (all intervals overlap). The effect is real but key-specific; the paper's T = 200 ± 5 filter (and ours) hides it in the detection tables.
 
+`figures/length_by_key.png` shows the full length distributions on the same 100 prompts: the survival curve under key 15485863 separates from the other three keys and from δ = 0 by about 35 tokens and keeps falling, while the other three keys track or sit slightly above the unwatermarked curve.
+
 ### 2a. A 2026 attacker: paraphrase vs T5 (`results/summary/ext2a_attacks.md`, `figures/ext2a_removal_frontier.png`)
 Same 200 watermarked texts (and their 200 human baselines, attacked the same way for calibration).
 
@@ -219,6 +224,78 @@ The WinMax advantage at 10% and 25% is far outside the intervals.
 
 The sliding-window maximum (WinMax, from the authors' follow-up: Kirchenbauer et al., *On the Reliability of Watermarks for Large Language Models*, ICLR 2024) answers the paper's open question for spans of ~60+ tokens; the plain full-text test does not.
 
+## Extension 3 · The watermark as a filter for sentiment data (`results/summary/ext3_filter.md`, `ext3_filter.csv`, `ext3_calibrated.csv`, `ext3_pasted.csv`, `ext3_controls.csv`; figures `ext3_recovery_vs_length.png`, `ext3_error_by_filter.png`, `ext3_actual_vs_predicted.png`, `ext3_pasted_passages.png`; per-text table `results/raw/ext3_filter/texts.jsonl.gz`, documents `docs.jsonl.gz`)
+
+**Question.** A sentiment signal is built from many texts; an attacker adds AI-written texts to push it. If the AI text carries the watermark, how much of the damage does removing the flagged texts undo, and how does that depend on text length and on attacks?
+
+**Setup** (spec `SPEC_ext3_filter.md`, plan `PLAN_ext3.md`). Sentiment from FinBERT (`ProsusAI/finbert`, separate from the generator), S = P(positive) − P(negative) ∈ [−1, 1], scored once per text and length and stored. A bucket is 50 human texts drawn from the 1,000 human baselines (idx < 1000, the paper's negatives), without replacement within a bucket, with replacement across buckets; its truth is the mean S of its human texts. 100 buckets per draw; 50 are attacked: AI texts are added until they make up a share c ∈ {0.1, 0.3} (6 or 21 texts; actual share 0.107 / 0.296), from the top third of the AI pool by S in 25 buckets ("up") and the bottom third in the other 25 ("down"). Slanted pools are reused across buckets (164 texts per slant for 493 watermarked texts; 66 for the 200 paraphrases). Filters: none, the watermark detector (drop every text with z > 4, human texts included), perfect (drop every AI text). Errors over the 100 buckets against the truth: RMSE and Spearman rank correlation; recovery = 1 − (RMSE_filter − RMSE_perfect)/(RMSE_none − RMSE_perfect); 500 full re-draws; brackets are 2.5–97.5 percentiles over draws (Wilson for rates). Everything reuses the texts of earlier phases: watermarked texts of §4.1 (γ = 0.5, δ = 2, the 493 with 200 tokens) cut to 25 / 50 / 100 / 200-token prefixes, with z recomputed from the stored green ranks; the Ext. 2a paraphrases (light / medium / full, actual median length 151 / 177 / 178 tokens, kept whole); the δ = 0 generations; the Ext. 2b documents. No new generation.
+
+**Two predictions of recovery if escaping the filter is unrelated to sentiment** (H5). (i) *Random at rate p*: inside the same draws, drop each AI text independently with the pool's detection rate p and each human text with the false-positive rate. (ii) *Same count, shuffled*: drop exactly the texts the detector flags, but with their identities permuted within each slant pool on every draw. The H5 test is actual minus (ii), per draw. The closed form of the spec, 1 − (1 − p)/(1 − cp), predicts the bias, not the RMSE (a root mean square over buckets half of which are clean), so it sits above both simulated predictions.
+
+**Controls.** FinBERT labels 71–74% of the human texts neutral at every length (below the 80% stop rule of the spec), with S = −0.03 ± 0.40 (25 tokens) to −0.10 ± 0.38 (200). The slant is real: at 200 tokens the up third of the watermarked pool has μ = +0.23 and the down third −0.54 against μ_H = −0.10 (paraphrases: +0.49 / −0.62). The detector removes 0 of 5,000 human texts per draw in every scenario (FPR 0 [0, 0.004] at each length). FinBERT fp16 against fp32 on 64 texts: max |Δp| = 0.001, identical labels.
+
+| scenario | AI texts | tokens | c | detection rate p | RMSE none / filter | Spearman none / filter | recovery [95% CI] | predicted (random at p) | predicted (shuffled) | actual − shuffled [95% CI] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A | watermarked | 25 | 0.1 | 0.103 [0.080, 0.133] | 0.028 / 0.026 | 0.86 / 0.88 | 0.081 [0.043, 0.123] | 0.084 | 0.081 | −0.000 [−0.067, 0.062] |
+| A | watermarked | 25 | 0.3 | 0.103 | 0.076 / 0.070 | 0.49 / 0.52 | 0.071 [0.051, 0.089] | 0.073 | 0.071 | −0.001 [−0.046, 0.039] |
+| A | watermarked | 50 | 0.1 | 0.533 [0.489, 0.577] | 0.033 / 0.019 | 0.83 / 0.94 | 0.419 [0.354, 0.492] | 0.454 | 0.443 | −0.024 [−0.127, 0.085] |
+| A | watermarked | 50 | 0.3 | 0.533 | 0.088 / 0.053 | 0.45 / 0.67 | 0.397 [0.361, 0.434] | 0.433 | 0.417 | −0.021 [−0.090, 0.047] |
+| A | watermarked | 100 | 0.1 | 0.939 [0.914, 0.957] | 0.033 / 0.005 | 0.83 / 0.99 | 0.844 [0.785, 0.904] | 0.864 | 0.874 | −0.030 [−0.111, 0.055] |
+| A | watermarked | 100 | 0.3 | 0.939 | 0.089 / 0.012 | 0.45 / 0.97 | 0.868 [0.836, 0.896] | 0.883 | 0.895 | −0.027 [−0.071, 0.023] |
+| A | watermarked | 200 | 0.1 | 0.986 [0.971, 0.993] | 0.031 / 0.002 | 0.83 / 1.00 | 0.939 [0.890, 1.000] | 0.945 | 0.969 | −0.030 [−0.093, 0.058] |
+| A | watermarked | 200 | 0.3 | 0.986 | 0.083 / 0.004 | 0.45 / 1.00 | 0.954 [0.938, 0.973] | 0.956 | 0.976 | −0.022 [−0.050, 0.014] |
+| B | light paraphrase | 151 | 0.1 | 0.220 [0.168, 0.282] | 0.040 / 0.033 | 0.75 / 0.81 | 0.172 [0.132, 0.216] | 0.184 | 0.194 | −0.022 [−0.100, 0.053] |
+| B | light paraphrase | 151 | 0.3 | 0.220 | 0.108 / 0.092 | 0.38 / 0.42 | 0.149 [0.130, 0.167] | 0.162 | 0.169 | −0.020 [−0.069, 0.022] |
+| B | medium paraphrase | 177 | 0.1 | 0.035 [0.017, 0.070] | 0.043 / 0.042 | 0.73 / 0.74 | 0.018 [0.005, 0.033] | 0.028 | 0.025 | −0.007 [−0.035, 0.015] |
+| B | medium paraphrase | 177 | 0.3 | 0.035 | 0.116 / 0.115 | 0.37 / 0.37 | 0.014 [0.008, 0.019] | 0.024 | 0.021 | −0.007 [−0.025, 0.009] |
+| B | full paraphrase | 178 | 0.1 | 0.015 [0.005, 0.043] | 0.043 / 0.042 | 0.73 / 0.73 | 0.008 [0.002, 0.017] | 0.012 | 0.013 | −0.005 [−0.024, 0.009] |
+| B | full paraphrase | 178 | 0.3 | 0.015 | 0.117 / 0.116 | 0.37 / 0.37 | 0.006 [0.004, 0.008] | 0.010 | 0.011 | −0.005 [−0.018, 0.005] |
+| D | unwatermarked | 200 | 0.1 | 0.002 [0.000, 0.011] | 0.030 / 0.030 | 0.83 / 0.83 | 0.000 [0.000, 0.000] | 0.002 | 0.000 | 0.000 |
+| D | unwatermarked | 200 | 0.3 | 0.002 | 0.082 / 0.082 | 0.46 / 0.46 | 0.000 [0.000, 0.000] | 0.002 | 0.000 | 0.000 |
+
+The RMSE of the perfect filter is 0 in every cell (the filter removes no human text). The largest attainable z is √T: 5.0 at 25 tokens, 7.1 at 50, so near-zero detection at 25 tokens is a property of the fixed threshold.
+
+**Reading.**
+- **H1, contamination harms the signal**: without a filter the RMSE is 0.031 (c = 0.1) and 0.083 (c = 0.3) at 200 tokens against 0 for the clean signal, and the rank correlation with the truth falls from 1 to 0.83 / 0.45. Supported.
+- **H2, long unattacked text**: the filter undoes 0.94 [0.89, 1.00] (c = 0.1) and 0.95 [0.94, 0.97] (c = 0.3) of the damage at 200 tokens; the rank correlation returns to 0.999 / 0.996. Supported.
+- **H3, length**: recovery 0.07 / 0.40 / 0.87 / 0.95 at 25 / 50 / 100 / 200 tokens (c = 0.3) against detection rates 0.10 / 0.53 / 0.94 / 0.99. Supported: recovery is the detection rate, slightly discounted.
+- **H4, rewrite attack**: a full Qwen paraphrase leaves 0.006–0.008 of the damage undone, a medium one 0.014–0.018, a light edit 0.15–0.17. Supported: what Ext. 2a measured as lost detection is lost signal quality one for one.
+- **H5, escaping is unrelated to sentiment**: actual minus shuffled-flags recovery is between −0.030 and 0.000 in the 16 cells and all 16 intervals cover zero. Not rejected. The point estimates are all slightly negative: in the escapers table the texts that escape at 50 tokens are, if anything, more extreme than their pool (up pool +0.04 [−0.00, +0.09], 83 of 164 escape; at 100 tokens the 9 escapers of the down pool are more negative, −0.24 [−0.40, −0.04]), which pushes the filtered error up by a few hundredths of recovery. The effect is small enough that the detection rate alone predicts recovery to within 0.03.
+- **Scenario D, the honest limit**: the filter removes 0 of 1,050 unwatermarked AI texts per draw and recovers nothing. A model that does not embed the watermark is invisible to this filter.
+
+**Tier 2, calibrated threshold** (`results/summary/ext3_calibrated.csv`). At 25 and 50 tokens the threshold is set to the 99th percentile of z over the 1,000 human texts of that length (z > 2.20 and z > 2.26; the realised FPR is 0.4% and 0.3% because z is discrete at short lengths).
+
+| tokens | c | threshold | AI removed (p) | human removed per draw (of 5,000) | recovery [95% CI] |
+|---|---|---|---|---|---|
+| 25 | 0.3 | z > 4 | 0.103 | 0.0 | 0.071 [0.051, 0.089] |
+| 25 | 0.3 | z > 2.20 (1% FPR) | 0.738 [0.698, 0.775] | 19.8 | 0.628 [0.584, 0.667] |
+| 50 | 0.3 | z > 4 | 0.533 | 0.0 | 0.397 [0.361, 0.434] |
+| 50 | 0.3 | z > 2.26 (1% FPR) | 0.949 [0.926, 0.965] | 14.9 | 0.895 [0.872, 0.917] |
+
+Accepting 20 lost human texts in 5,000 turns the filter from useless to recovering 0.63 of the damage at 25 tokens, and 0.90 at 50 (c = 0.1 rows in the CSV: 0.605 and 0.854).
+
+**Tier 2, scenario C: pasted passages** (`results/summary/ext3_pasted.csv`, `figures/ext3_pasted_passages.png`). The Ext. 2b documents (600 tokens of human text with one watermarked span of 60 / 150 / 300 tokens) were rebuilt with their text from the same seed (z identical to the stored file). FinBERT reads at most 512 tokens, so a document's S is the mean over its two 300-token halves; the AI pools (200 documents per share) are slanted by the pasted span's own S, the human pool is the 1,000 human-only documents (neutral share 0.72, μ_H = −0.12). Three detectors: whole-text z > 4; whole-text z at the Ext. 2b 1% FPR threshold (z > 2.20); WinMax at its 1% FPR threshold (> 4.02).
+
+| span | detector | p (AI docs removed) | recovery, c = 0.1 | recovery, c = 0.3 |
+|---|---|---|---|---|
+| 10% | whole text, z > 4 | 0.010 | 0.01 [−0.01, 0.04] | 0.02 [0.00, 0.04] |
+| 10% | whole text, 1% FPR | 0.115 | −0.03 [−0.14, 0.08] | −0.02 [−0.10, 0.06] |
+| 10% | WinMax, 1% FPR | 0.865 | 0.60 [0.49, 0.69] | 0.66 [0.57, 0.74] |
+| 25% | whole text, z > 4 | 0.285 | 0.30 [0.19, 0.40] | 0.33 [0.27, 0.37] |
+| 25% | whole text, 1% FPR | 0.815 | 0.58 [0.48, 0.69] | 0.71 [0.65, 0.75] |
+| 25% | WinMax, 1% FPR | 0.995 | 0.80 [0.74, 0.85] | 0.92 [0.89, 0.94] |
+| 50% | whole text, z > 4 | 0.975 | 0.98 [0.96, 1.00] | 0.98 [0.98, 0.99] |
+| 50% | whole text, 1% FPR | 1.000 | 0.75 [0.67, 0.83] | 0.90 [0.87, 0.93] |
+| 50% | WinMax, 1% FPR | 1.000 | 0.84 [0.79, 0.88] | 0.94 [0.92, 0.95] |
+
+- **H6**: for a 10% span the window detector recovers 0.60–0.66 of the damage where the whole-text test recovers nothing (its calibrated version is even slightly negative, because its 0.8% false positives cost more than the 11.5% of AI documents it removes). Supported. Recovery saturates below 1 for the calibrated detectors because they remove 0.6–0.8% of the human documents.
+- The contamination in this scenario is mild by construction: with a 10% span a "slanted" document is 90% human text, so the no-filter RMSE is 0.017 at c = 0.3 against 0.083 in scenario A.
+- H5 here: against the shuffled-flags prediction the gap is between −0.06 and +0.15 and excludes zero in 1 of 18 cells (25% span, z > 4, c = 0.3: +0.15 [+0.00, +0.32]). Against independent random removal at rate p the filter looks better than chance in 3 cells (up to +0.13). That is a small-pool effect, not sentiment: with 66 documents per slant and a fixed handful of escapers, the number of escapers per bucket varies less than under independent removal, and the RMSE is driven by the buckets with the most escapers. The shuffled prediction, which keeps the count fixed, removes most of the gap.
+
+**What this does and does not show.** The campaign is synthetic: we inject the AI texts ourselves, so the result is the value of the filter *if* providers embed the watermark and share the key, not evidence that it cleans any real feed today; scenario D is that limit. Slant by selection (top and bottom third of the AI pool) stands in for a campaign that would prompt for slant. FinBERT on general news is partly out of domain (71–74% neutral), which the continuous score S absorbs. "Signal quality" means closeness to the clean sentiment signal, not predictive power for prices.
+
+**Timing** (`results/summary/ext3_timing.jsonl`): FinBERT on 7,064 (text, length) pairs 33 s (214 texts/s, fp16, mps); the 1,600 scenario C documents 40 s (plus 49 s to rebuild them); the simulations 31 s (A, B, D), 16 s (calibrated), 34 s (C) on the CPU. Total under 4 minutes of compute against a 90-minute budget.
+
 ## Deviations
 - **Green lists** use a CPU `torch.Generator` (as the reference `watermark_processor.py` does when run on CPU). The paper's runs used a CUDA generator, so the concrete green lists differ from the paper's; the scheme and its statistics are identical. The legacy `experiments/watermark.py` took green = complement of a "blacklist" of size `bl_proportion·V`; we follow the root reference `randperm[:int(γV)]` (validated bit-for-bit, `results/summary/greenlist_equivalence.txt`).
 - **Prompts**: last 200 tokens = human baseline; prompt = the rest (BOS + last 1847 tokens if longer). The paper's script truncated each document to its first 2048 tokens before splitting; this only matters for documents longer than 2048 tokens.
@@ -242,4 +319,4 @@ The sliding-window maximum (WinMax, from the authors' follow-up: Kirchenbauer et
 ## Compute
 Apple M5 Pro, 24 GB unified memory, `mps`, fp16 (T5-Large in bf16). Measured before the runs (`results/summary/benchmark.json`), seconds per sequence: OPT-1.3B multinomial 0.59 (batch 16) to 0.84 (batch 8); 4-beam 7.1; 8-beam 9.2 (batch 4, typical prompts); oracle PPL 0.31; Qwen generation 0.52-0.53; Qwen paraphrase 0.63; one T5 round over 32 texts 9.5 s in bf16 (19 s fp32).
 
-Approximate wall-clock per step of `run.py` (from the run logs): `headline` 25 min (4-beam 15 min); `table8` 1.5 h (the two 8-beam rows ≈ 1 h); `fig2_grid` 35 min; `fig2_beams` 2 h; `fig3c_beams` 3 h; `ext1b` 3 min; `ext1c` 8 min; `ext1c_qa` 3 min; `keys` 4 min; `para` 10 min; `t5` 2.1 h; `t5w` 6.8 h (only ≈60% of masks yield a one-word candidate); `score`, `dilution` 1 min each; `ppl` about 1 h in total; `ppl_qwen` under 1 min. Total ≈ 20 hours, dominated by the T5 attacks (≈9 h) and 8-beam search (≈6 h). Beam search and the perplexity pass need `torch.mps.empty_cache()` after every batch and the token budgets in `params.py` to stay out of swap on 24 GB.
+Approximate wall-clock per step of `run.py` (from the run logs): `headline` 25 min (4-beam 15 min); `table8` 1.5 h (the two 8-beam rows ≈ 1 h); `fig2_grid` 35 min; `fig2_beams` 2 h; `fig3c_beams` 3 h; `ext1b` 3 min; `ext1c` 8 min; `ext1c_qa` 3 min; `keys` 4 min; `para` 10 min; `t5` 2.1 h; `t5w` 6.8 h (only ≈60% of masks yield a one-word candidate); `score`, `dilution` 1 min each; `ppl` about 1 h in total; `ppl_qwen` under 1 min; `ext3` 40 s and `ext3_docs` 1.5 min (Extension 3; its simulation runs in the notebook in about 80 s). Total ≈ 20 hours, dominated by the T5 attacks (≈9 h) and 8-beam search (≈6 h). Beam search and the perplexity pass need `torch.mps.empty_cache()` after every batch and the token budgets in `params.py` to stay out of swap on 24 GB.

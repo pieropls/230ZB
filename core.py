@@ -22,6 +22,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(ROOT, "results", "raw")
 SUMMARY = os.path.join(ROOT, "results", "summary")
 PROMPTS_FILE = os.path.join(ROOT, "results", "prompts_c4.jsonl.gz")
+EXT3_FILE = os.path.join(RAW, "ext3_filter", "texts.jsonl.gz")   # Extension 3 per-text table
+EXT3_DOCS = os.path.join(RAW, "ext3_filter", "docs.jsonl.gz")    # Extension 3 scenario C documents
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE in ("cuda", "mps") else torch.float32
@@ -519,6 +521,32 @@ def embed(texts, batch=64):
     del model
     free()
     return torch.cat(out).numpy()
+
+
+# ---- sentiment scorer (Extension 3) ---------------------------------------------------------------
+def load_sentiment(dtype=None):
+    """FinBERT sequence classifier, its tokenizer and the label order of its logits."""
+    from transformers import AutoModelForSequenceClassification
+    tok = AutoTokenizer.from_pretrained(P.SENTIMENT_MODEL)
+    model = AutoModelForSequenceClassification.from_pretrained(P.SENTIMENT_MODEL, dtype=dtype or DTYPE).to(DEVICE).eval()
+    labels = [model.config.id2label[i] for i in range(model.config.num_labels)]
+    return model, tok, labels
+
+
+def sentiment(model, tok, labels, texts, batch=P.EXT3_BATCH):
+    """{label: probability} per text (texts over 512 BERT tokens are truncated); longest first, input order kept."""
+    order = sorted(range(len(texts)), key=lambda i: -len(texts[i]))
+    out = [None] * len(texts)
+    for s in range(0, len(order), batch):
+        js = order[s:s + batch]
+        enc = tok([texts[j] for j in js], padding=True, truncation=True, max_length=512, return_tensors="pt").to(DEVICE)
+        with torch.no_grad():
+            p = model(**enc).logits.float().softmax(-1).cpu().numpy()
+        for j, row in zip(js, p):
+            out[j] = {lab: float(v) for lab, v in zip(labels, row)}
+    if DEVICE == "mps":
+        torch.mps.empty_cache()
+    return out
 
 
 # ---- loading results --------------------------------------------------------------------------

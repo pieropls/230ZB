@@ -243,3 +243,204 @@ def keys_eos(labels, df, name, title):
         ax.set_xlabel("hash key and estimated P(EOS) multiplier after \".\"; n = 100 per bar, Wilson 95% CI", fontsize=7)
     fig.suptitle(title, fontweight="bold")
     _save(fig, name)
+
+
+# ---- Extension 3 ----------------------------------------------------------------------------------
+def ext3_recovery(rows, name, title, n_note):
+    """Scenario A. rows: DataFrame with L, c, recovery_det(_lo/_hi), recovery_rand, recovery_formula, p, p_lo, p_hi,
+    z_max_possible. Left: recovery against length with the two predictions; right: detection rate and the z ceiling."""
+    from matplotlib.ticker import ScalarFormatter
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.3))
+    ax = axes[0]
+    Ls = sorted(rows.L.unique())
+    for i, (c, g) in enumerate(rows.groupby("c")):
+        g = g.sort_values("L")
+        ax.errorbar(g.L, g.recovery_det, yerr=[g.recovery_det - g.recovery_det_lo, g.recovery_det_hi - g.recovery_det],
+                    fmt="o-", color=COLORS[i], capsize=3, lw=1.5, ms=6, label=f"watermark filter, c = {c:g}")
+        ax.plot(g.L, g.recovery_rand, "--", color=COLORS[i], lw=1.2, label=f"predicted: random removal at rate p, c = {c:g}")
+        ax.plot(g.L, g.recovery_formula, ":", color=COLORS[i], lw=1.2, label=f"formula 1 − (1−p)/(1−cp), c = {c:g}")
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(Ls)
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlabel("text length (OPT tokens)")
+    ax.set_ylabel("recovery of the signal (RMSE)")
+    ax.set_ylim(-0.02, 1.02)
+    ax.legend(fontsize=7, loc="upper left")
+    _note(ax, n_note)
+    ax = axes[1]
+    g = rows.drop_duplicates("L").sort_values("L")
+    ax.errorbar(g.L, g.p, yerr=[g.p - g.p_lo, g.p_hi - g.p], fmt="s-", color="k", capsize=3, lw=1.5, ms=6,
+                label="detection rate at z > 4 (watermarked pool)")
+    for L, zm, p in zip(g.L, g.z_max_possible, g.p):
+        ax.annotate(f"max z = {zm:.1f}", (L, p), fontsize=7, xytext=(6, -12), textcoords="offset points", color="0.3")
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(Ls)
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xlabel("text length (OPT tokens)")
+    ax.set_ylabel("share of AI texts the filter removes")
+    ax.set_ylim(-0.02, 1.02)
+    ax.legend(fontsize=7, loc="upper left")
+    fig.suptitle(title, fontweight="bold")
+    _save(fig, name)
+
+
+def ext3_errors(panels, name, title, n_note, filters=("no filter", "watermark filter", "perfect filter")):
+    """panels: {panel title: [(group label, [(rmse, lo, hi) per filter])]}. Grouped bars with percentile intervals."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(5.2 * len(panels), 4.4), sharey=True)
+    axes = np.atleast_1d(axes)
+    w = 0.8 / len(filters)
+    for ax, (ptitle, groups) in zip(axes, panels.items()):
+        x = np.arange(len(groups))
+        for k, f in enumerate(filters):
+            v = np.array([g[1][k][0] for g in groups])
+            lo = np.array([g[1][k][1] for g in groups])
+            hi = np.array([g[1][k][2] for g in groups])
+            ax.bar(x + (k - (len(filters) - 1) / 2) * w, v, w, color=COLORS[k], label=f)
+            ax.errorbar(x + (k - (len(filters) - 1) / 2) * w, v, yerr=[v - lo, hi - v], fmt="none", ecolor="k", capsize=2, lw=0.8)
+        ax.set_xticks(x, [g[0] for g in groups], fontsize=8)
+        ax.set_title(ptitle, fontsize=10)
+        ax.set_ylabel("RMSE of the bucket sentiment signal")
+    axes[0].legend(fontsize=8)
+    _note(axes[-1], n_note)
+    fig.suptitle(title, fontweight="bold")
+    _save(fig, name)
+
+
+def ext3_actual_vs_predicted(points, name, title, n_note):
+    """points: [(family, label, predicted, (lo, hi), actual, (lo, hi))]; one marker per family; diagonal = H5 holds."""
+    fig, ax = plt.subplots(figsize=(6, 5.4))
+    fams = list(dict.fromkeys(p[0] for p in points))
+    marks = "os^Dv"
+    for i, f in enumerate(fams):
+        pts = [p for p in points if p[0] == f]
+        ax.errorbar([p[2] for p in pts], [p[4] for p in pts],
+                    xerr=[[p[2] - p[3][0] for p in pts], [p[3][1] - p[2] for p in pts]],
+                    yerr=[[p[4] - p[5][0] for p in pts], [p[5][1] - p[4] for p in pts]],
+                    fmt=marks[i % len(marks)], color=COLORS[i], ms=7, capsize=2, lw=0.8, label=f)
+        for p in pts:
+            ax.annotate(p[1], (p[2], p[4]), fontsize=7, xytext=(5, 3), textcoords="offset points")
+    ax.plot([0, 1], [0, 1], color="0.6", lw=1, ls=":")
+    ax.set_xlabel("predicted recovery (AI texts removed at random at the detection rate p)")
+    ax.set_ylabel("actual recovery (watermark filter)")
+    ax.set_xlim(-0.03, 1.03)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_title(title, fontweight="bold")
+    ax.legend(fontsize=8, loc="upper left")
+    _note(ax, n_note)
+    _save(fig, name)
+
+
+def ext3_pasted(panels, name, title, n_note):
+    """Scenario C. panels: {panel title: {detector: (shares, recovery, lo, hi)}}; recovery against the watermarked share."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(5.2 * len(panels), 4.3), sharey=True)
+    axes = np.atleast_1d(axes)
+    for ax, (ptitle, lines) in zip(axes, panels.items()):
+        for i, (label, (sh, v, lo, hi)) in enumerate(lines.items()):
+            sh, v, lo, hi = (np.asarray(x) for x in (sh, v, lo, hi))
+            ax.errorbar(sh * 100, v, yerr=[v - lo, hi - v], fmt="os^"[i % 3] + "-", color=COLORS[i], capsize=3, lw=1.5, ms=6, label=label)
+        ax.set_xlabel("watermarked share of the 600-token document (%)")
+        ax.set_ylim(-0.02, 1.02)
+        ax.set_title(ptitle, fontsize=10)
+    axes[0].set_ylabel("recovery of the signal (RMSE)")
+    axes[0].legend(fontsize=8, loc="upper left")
+    _note(axes[-1], n_note)
+    fig.suptitle(title, fontweight="bold")
+    _save(fig, name)
+
+
+# ---- replication plots with the paper's values overlaid ---------------------------------------------
+PAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]   # fixed categorical order
+
+
+def tradeoff_vs_paper(ours, paper, name, n_note):
+    """Fig. 2 with the paper's points overlaid. ours / paper: DataFrames with panel, gamma, delta, and
+    z_mean, PPL_mean / z_paper, PPL_paper. Ours: filled markers joined by lines; paper: hollow markers of the
+    same colour (its several delta = 0 baselines per series are averaged). delta is written once per panel."""
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.8))
+    panels = [(axes[0], "Multinomial sampling", lambda df: df.panel == "multinomial", "gamma", lambda k: f"γ = {k:g}"),
+              (axes[1], "Greedy and beam search, γ = 0.5", lambda df: df.panel != "multinomial", "panel", lambda k: k)]
+    for ax, title, sel, by, lab in panels:
+        o, p = ours[sel(ours)], paper[sel(paper)]
+        keys = [k for k in (sorted(o[by].unique()) if by == "gamma" else ["greedy", "4 beams", "8 beams"]) if k in set(o[by])]
+        spread = {k: o[o[by] == k].z_mean.max() - o[o[by] == k].z_mean.min() for k in keys}
+        for i, k in enumerate(keys):
+            a = o[o[by] == k].sort_values("delta")
+            b = p[p[by] == k].groupby("delta", as_index=False)[["z_paper", "PPL_paper"]].mean().sort_values("delta")
+            ax.plot(a.PPL_mean, a.z_mean, "o-", color=PAL[i], lw=2, ms=6, label=f"{lab(k)}: ours", zorder=3)
+            ax.plot(b.PPL_paper, b.z_paper, "o", mfc="white", mec=PAL[i], mew=1.6, ms=7, label=f"{lab(k)}: paper", zorder=2)
+            bm = b.set_index("delta")
+            for _, ra in a.iterrows():                      # thin tie between matched points
+                if ra.delta in bm.index:
+                    ax.plot([ra.PPL_mean, bm.loc[ra.delta, "PPL_paper"]], [ra.z_mean, bm.loc[ra.delta, "z_paper"]],
+                            color=PAL[i], lw=0.7, alpha=0.5, zorder=1)
+            if k == max(spread, key=spread.get):
+                for _, r in a.iterrows():
+                    ax.annotate(f"δ={r.delta:g}", (r.PPL_mean, r.z_mean), fontsize=7, color="0.3",
+                                xytext=(5, 4), textcoords="offset points")
+        ax.set_title(title, fontweight="bold")
+        ax.invert_xaxis()
+        ax.set_xlabel("oracle perplexity (OPT-2.7B), better →")
+        ax.set_ylabel("mean z-score")
+        ax.grid(color="0.9", lw=0.8)
+        ax.set_axisbelow(True)
+        for s in ("top", "right"):
+            ax.spines[s].set_visible(False)
+        h, l = ax.get_legend_handles_labels()
+        leg = ax.legend([hh for hh, ll in zip(h, l) if ll.endswith("ours")], [ll[:-6] for ll in l if ll.endswith("ours")],
+                        fontsize=8, loc="lower left", frameon=False, title="series", title_fontsize=8)
+        ax.add_artist(leg)
+        from matplotlib.lines import Line2D
+        ax.legend([Line2D([], [], marker="o", color="0.3", lw=2, ms=6), Line2D([], [], marker="o", mfc="white", mec="0.3", mew=1.6, ms=7, ls="none")],
+                  ["ours (n = %s)" % n_note, "paper, read off its Fig. 2"], fontsize=8, loc="center left", frameon=False)
+        _note(ax, "δ grows along each curve; thin ties join matched settings")
+    fig.suptitle("Fig. 2 replicated: watermark strength vs text quality, ours (filled) against the paper (hollow), T = 200", fontweight="bold")
+    _save(fig, name)
+
+
+def length_by_key(series, name, title, window, early):
+    """Text length under different hash keys. series: {label: T array} in display order; the last entry is the
+    no-watermark reference (grey, dashed). Left: survival curve P(T >= t). Right: share stopping before `early`
+    tokens and share inside `window` (the paper's T filter), Wilson 95% CIs."""
+    from stats import wilson_of
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.4), gridspec_kw=dict(width_ratios=[1.45, 1]))
+    ax = axes[0]
+    labels = list(series)
+    tmax = max(np.max(t) for t in series.values())
+    ts = np.arange(0, tmax + 2)
+    ax.axvspan(window[0], window[1], color="0.92", lw=0, label=f"paper's filter, T = {window[0]}–{window[1]}")
+    ax.axvline(early, color="0.6", lw=1, ls=":")
+    ax.text(early + 2, 0.62, f"T < {early}: 'stopped early'", fontsize=7, color="0.4")
+    for i, lab in enumerate(labels):
+        T = np.asarray(series[lab])
+        surv = [(T >= t).mean() for t in ts]
+        last = i == len(labels) - 1
+        ax.step(ts, surv, where="post", color="0.45" if last else PAL[i], lw=2, ls="--" if last else "-",
+                label=f"{lab} (n = {len(T)})")
+    ax.set_xlim(0, tmax + 2)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("tokens generated, t")
+    ax.set_ylabel("share of generations with at least t tokens")
+    ax.legend(fontsize=7, loc="lower left", frameon=False)
+    ax = axes[1]
+    x = np.arange(len(labels))
+    w = 0.38
+    for j, (fn, col, lab) in enumerate(((lambda T: T < early, "0.25", f"stopped before {early} tokens"),
+                                        (lambda T: (T >= window[0]) & (T <= window[1]), "0.7", f"inside {window[0]}–{window[1]}"))):
+        v = np.array([np.mean(fn(np.asarray(series[l]))) for l in labels])
+        lo, hi = zip(*[wilson_of(list(fn(np.asarray(series[l])))) for l in labels])
+        ax.bar(x + (j - 0.5) * w, v, width=w, color=col, label=lab, edgecolor="white", lw=1)
+        ax.errorbar(x + (j - 0.5) * w, v, yerr=[v - np.array(lo), np.array(hi) - v], fmt="none", ecolor="k", capsize=3, lw=1)
+        for xi, vi, hi_ in zip(x + (j - 0.5) * w, v, hi):
+            ax.text(xi, hi_ + 0.015, f"{vi:.2f}", ha="center", fontsize=7, color="0.3")
+    ax.set_xticks(x, [l.replace(", ", "\n").replace(" (", "\n(") for l in labels], fontsize=7)
+    ax.set_ylim(0, 1.08)
+    ax.set_ylabel("share of generations")
+    ax.set_xlabel("hash key (γ = 0.5, δ = 2) and estimated multiplier of P(end-of-text | \".\")", fontsize=8)
+    ax.legend(fontsize=7, loc="upper left", frameon=False)
+    for a in axes:
+        a.grid(axis="y", color="0.9", lw=0.8)
+        a.set_axisbelow(True)
+        for s in ("top", "right"):
+            a.spines[s].set_visible(False)
+    fig.suptitle(title, fontweight="bold")
+    _save(fig, name)

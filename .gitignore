@@ -23,3 +23,13 @@ presentation/*.vrb
 presentation/*.synctex.gz
 presentation/*.fls
 presentation/*.fdb_latexmk
+
+# LaTeX build files (report)
+report/*.aux
+report/*.log
+report/*.out
+report/*.blg
+report/*.bbl
+report/*.fls
+report/*.fdb_latexmk
+report/*.synctex.gz

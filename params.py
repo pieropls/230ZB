@@ -122,3 +122,16 @@ EXPERIMENTS = {
                   for m in ("qwen", "qwen-it") for d in (2, 0)]
                  + [C(model="qwen-it", domain="news", gamma=0.25, delta=4, n=N_EXT)]),
 }
+
+
+# ---- Extension 3: the watermark as a filter for sentiment data -------------------
+SENTIMENT_MODEL = "ProsusAI/finbert"       # scorer, separate from the generator; S = P(pos) - P(neg)
+EXT3_LENGTHS = [25, 50, 100, 200]          # prefix lengths (OPT tokens) for scenario A and the human texts
+EXT3_BUCKETS = 100                         # buckets per draw (one bucket = one day of text about one subject)
+EXT3_BUCKET_N = 50                         # human texts per bucket
+EXT3_SHARES = [0.1, 0.3]                   # contamination share c of the attacked buckets
+EXT3_DRAWS = 500                           # full re-draws of all buckets
+EXT3_Z = 4.0                               # whole-text detector threshold
+EXT3_SLANT = 1 / 3                         # top / bottom third of the AI pool by sentiment = up / down campaign
+EXT3_FP_RATE = 0.01                        # Tier 2: calibrated threshold at this false-positive rate on human text
+EXT3_BATCH = 64                            # FinBERT batch size

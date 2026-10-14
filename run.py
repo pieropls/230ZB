@@ -264,31 +264,40 @@ def score(args):
     log(f"scored {len(rows)} texts")
 
 
-def dilution(args):
-    """Ext. 2b: 600-token human documents with one watermarked span of 60 / 150 / 300 tokens."""
-    V = C.vocab_size(opt_tokenizer())
+def dilution_docs():
+    """The Ext. 2b documents (seed 0, deterministic): 600-token human documents, then documents with one
+    watermarked span of 60 / 150 / 300 tokens at a random position. Each: kind, share, pos, ids, span ids."""
     rng = np.random.default_rng(0)
     pool = [r["ids"] for r in C.read_jsonl(C.raw_path("human", "c4")) if r["idx"] >= P.N_GEN_PROMPTS]
     wm = [r["ids"] for r in sorted(C.read_jsonl(C.gen_path("opt-news-m-d2-g0.5")), key=lambda r: r["idx"])
           if P.T_KEEP[0] <= r["T"] <= P.T_KEEP[1]]
-    L, gamma = P.DILUTION_LEN, 0.5
+    L = P.DILUTION_LEN
 
     def human_tokens(n):
         js = rng.choice(len(pool), 3, replace=False)
         return sum((pool[j] for j in js), [])[:n]
 
-    def score_doc(ids):
-        g = S.green(C.token_ranks(ids, 2, V), gamma, V)      # first token's context: </s>
-        return dict(z=float(S.z_of(g, gamma)), winmax=float(S.winmax(g, gamma)))
-
-    out = [dict(kind="human", share=0.0, **score_doc(human_tokens(L))) for _ in range(P.N_DILUTION_NEG)]
+    out = [dict(kind="human", share=0.0, ids=human_tokens(L), span=[]) for _ in range(P.N_DILUTION_NEG)]
     for span in P.DILUTION_SPANS:
         for _ in range(P.N_DILUTION):
             a, b = rng.choice(len(wm), 2, replace=False)
             w = (wm[a] + wm[b])[:span]
             h = human_tokens(L - span)
             pos = int(rng.integers(0, L - span + 1))
-            out.append(dict(kind="mixed", share=span / L, pos=pos, **score_doc(h[:pos] + w + h[pos:])))
+            out.append(dict(kind="mixed", share=span / L, pos=pos, ids=h[:pos] + w + h[pos:], span=w))
+    return out
+
+
+def dilution(args):
+    """Ext. 2b: 600-token human documents with one watermarked span of 60 / 150 / 300 tokens."""
+    V = C.vocab_size(opt_tokenizer())
+    gamma = 0.5
+
+    def score_doc(ids):
+        g = S.green(C.token_ranks(ids, 2, V), gamma, V)      # first token's context: </s>
+        return dict(z=float(S.z_of(g, gamma)), winmax=float(S.winmax(g, gamma)))
+
+    out = [dict({k: d[k] for k in ("kind", "share", "pos") if k in d}, **score_doc(d["ids"])) for d in dilution_docs()]
     path = C.raw_path("dilution", "docs")
     if os.path.exists(path):
         os.remove(path)
@@ -350,9 +359,134 @@ def ppl_qwen(args):
     run_ppl("qwen")
 
 
+# ---- Extension 3: sentiment scores (the per-text table) ------------------------------------------
+def ext3_texts(tok, n=None):
+    """Every (text, length) Extension 3 scores: human and watermarked prefixes at EXT3_LENGTHS, unwatermarked
+    at 200, the three paraphrase strengths at their own length. Prefixes are cut in OPT tokens, then decoded."""
+    V = C.vocab_size(tok)
+    items = []
+
+    def add(src, idx, ids, ranks, L, text=None):
+        """L is the nominal length of the pool; paraphrases keep their whole text (actual length T)."""
+        pre = ids if text is not None else ids[:L]
+        items.append(dict(id=f"{src}-{idx}-{L}", src=src, idx=idx, L=L, T=len(pre),
+                          z=float(S.z_of(S.green(ranks[:len(pre)], 0.5, V), 0.5)),
+                          text=text if text is not None else tok.decode(pre, skip_special_tokens=True)))
+
+    human = [r for r in C.read_jsonl(C.raw_path("human", "c4")) if r["idx"] < P.N_GEN_PROMPTS][:n]
+    wm = [r for r in sorted(C.read_jsonl(C.gen_path("opt-news-m-d2-g0.5")), key=lambda r: r["idx"])
+          if r["T"] >= P.MAX_NEW][:n]
+    nowm = [r for r in sorted(C.read_jsonl(C.gen_path("opt-news-m-d0")), key=lambda r: r["idx"]) if r["T"] >= P.MAX_NEW][:n]
+    para = [r for r in C.read_jsonl(C.raw_path("attacks", "scored")) if r["attack"] == "para" and r["src"] == "wm"]
+    for r in human:
+        for L in P.EXT3_LENGTHS:
+            add("human", r["idx"], r["ids"], r["ranks"], L)
+    for r in wm:
+        for L in P.EXT3_LENGTHS:
+            add("wm", r["idx"], r["ids"], r["ranks"], L)
+    for r in nowm:
+        add("nowm", r["idx"], r["ids"], r["ranks"], P.MAX_NEW)
+    for strength in P.PARA_PROMPTS:
+        for r in [r for r in para if r["level"] == strength][:n]:
+            add(f"para-{strength}", r["idx"], r["opt_ids"], r["ranks"], P.MAX_NEW, text=r["text"])
+    return items
+
+
+def ext3(args):
+    """Ext. 3: FinBERT sentiment of human, watermarked, unwatermarked and paraphrased texts at each length."""
+    import ext3 as E
+    t0 = time.time()
+    items = ext3_texts(opt_tokenizer(), args.n)
+    done = {r["id"] for r in C.read_jsonl(C.EXT3_FILE)}
+    todo = [it for it in items if it["id"] not in done]
+    log(f"ext3: {len(items)} (text, length) pairs, {len(todo)} to score, {len(done)} on disk")
+    model, stok, labels = C.load_sentiment()
+    t_load = time.time() - t0
+    if args.n:     # pilot: fp16 against fp32 on a few texts
+        m32, _, _ = C.load_sentiment(dtype=torch.float32)
+        sample = [it["text"] for it in items[:64]]
+        a = np.array([[p["positive"], p["negative"], p["neutral"]] for p in C.sentiment(model, stok, labels, sample)])
+        b = np.array([[p["positive"], p["negative"], p["neutral"]] for p in C.sentiment(m32, stok, labels, sample)])
+        log(f"fp16 vs fp32 on {len(sample)} texts: max |dp| = {np.abs(a - b).max():.4f}, "
+            f"label agreement {(a.argmax(1) == b.argmax(1)).mean():.3f}")
+        del m32
+        C.free()
+    t1, n = time.time(), 0
+    for s in range(0, len(todo), 512):
+        chunk = todo[s:s + 512]
+        probs = C.sentiment(model, stok, labels, [it["text"] for it in chunk])
+        rows = [dict(it, p_pos=p["positive"], p_neg=p["negative"], p_neu=p["neutral"], S=p["positive"] - p["negative"],
+                     label=max(p, key=p.get), flagged=bool(it["z"] > P.EXT3_Z)) for it, p in zip(chunk, probs)]
+        C.append_jsonl(C.EXT3_FILE, rows)
+        n += len(chunk)
+        log(f"  ext3: {n}/{len(todo)}  {n / (time.time() - t1):.1f} texts/s")
+    dt = time.time() - t1
+    C.append_jsonl(os.path.join(C.SUMMARY, "ext3_timing.jsonl"),
+                   [dict(step="score" + ("_pilot" if args.n else ""), n=n, seconds=round(dt, 1),
+                         texts_per_s=round(n / dt, 1) if dt else None, load_seconds=round(t_load, 1),
+                         device=C.DEVICE, dtype=str(C.DTYPE))])
+    del model
+    C.free()
+    print(E.controls_text(C.read_jsonl(C.EXT3_FILE)))
+
+
+def ext3_docs(args):
+    """Ext. 3 Tier 2 (scenario C): FinBERT on the Ext. 2b documents (mean of the two 300-token halves) and on their spans."""
+    import ext3 as E
+    t0 = time.time()
+    tok = opt_tokenizer()
+    V = C.vocab_size(tok)
+    docs = dilution_docs()
+    stored = C.read_jsonl(C.raw_path("dilution", "docs"))
+    assert len(docs) == len(stored), (len(docs), len(stored))
+    for d, st in zip(docs, stored):     # the rebuild must reproduce the Ext. 2b file exactly
+        z = S.z_of(S.green(C.token_ranks(d["ids"], 2, V), 0.5, V), 0.5)
+        assert abs(z - st["z"]) < 1e-6 and d["kind"] == st["kind"] and d["share"] == st["share"]
+    log(f"ext3_docs: rebuilt {len(docs)} Ext. 2b documents, z identical to results/raw/dilution/docs.jsonl.gz")
+    done = {r["id"] for r in C.read_jsonl(C.EXT3_DOCS)}
+    todo = [i for i in range(len(docs)) if i not in done][:args.n]
+    model, stok, labels = C.load_sentiment()
+    t1 = time.time()
+    for s in range(0, len(todo), 256):
+        chunk = todo[s:s + 256]
+        texts, span_texts = [], []
+        for i in chunk:
+            ids = docs[i]["ids"]
+            h = len(ids) // 2
+            texts += [tok.decode(ids[:h], skip_special_tokens=True), tok.decode(ids[h:], skip_special_tokens=True)]
+            span_texts.append(tok.decode(docs[i]["span"], skip_special_tokens=True) if docs[i]["span"] else "")
+        ph = C.sentiment(model, stok, labels, texts)
+        ps = C.sentiment(model, stok, labels, [t for t in span_texts if t])
+        ps = iter(ps)
+        rows = []
+        for j, i in enumerate(chunk):
+            a, b = ph[2 * j], ph[2 * j + 1]
+            S1, S2 = a["positive"] - a["negative"], b["positive"] - b["negative"]
+            row = dict(id=i, kind=docs[i]["kind"], share=docs[i]["share"], pos=docs[i].get("pos"), T=len(docs[i]["ids"]),
+                       span_T=len(docs[i]["span"]), z=stored[i]["z"], winmax=stored[i]["winmax"],
+                       S=(S1 + S2) / 2, S_half1=S1, S_half2=S2,
+                       p_pos=(a["positive"] + b["positive"]) / 2, p_neg=(a["negative"] + b["negative"]) / 2,
+                       p_neu=(a["neutral"] + b["neutral"]) / 2)
+            row["label"] = max(("positive", "negative", "neutral"), key=lambda k: row["p_" + k[:3]])
+            if span_texts[j]:
+                p = next(ps)
+                row.update(S_span=p["positive"] - p["negative"], span_label=max(p, key=p.get))
+            rows.append(row)
+        C.append_jsonl(C.EXT3_DOCS, rows)
+        log(f"  ext3_docs: {s + len(chunk)}/{len(todo)}  {(s + len(chunk)) / (time.time() - t1):.1f} docs/s")
+    dt = time.time() - t1
+    C.append_jsonl(os.path.join(C.SUMMARY, "ext3_timing.jsonl"),
+                   [dict(step="score_docs (scenario C)", n=len(todo), seconds=round(dt, 1),
+                         texts_per_s=round(len(todo) / dt, 1) if dt else None, device=C.DEVICE, dtype=str(C.DTYPE),
+                         rebuild_seconds=round(t1 - t0, 1))])
+    del model
+    C.free()
+
+
 # ---- pipeline order ---------------------------------------------------------------------------------
 STEPS = dict(prompts=prompts, equiv=equiv, human=human, check=check)
-LATER = dict(keys=keys, para=para, t5=t5, t5w=t5w, score=score, dilution=dilution, ppl=ppl, ppl_qwen=ppl_qwen)
+LATER = dict(keys=keys, para=para, t5=t5, t5w=t5w, score=score, dilution=dilution, ppl=ppl, ppl_qwen=ppl_qwen,
+             ext3=ext3, ext3_docs=ext3_docs)
 ORDER = list(STEPS) + list(P.EXPERIMENTS) + list(LATER)
 STEPS.update(LATER)
 

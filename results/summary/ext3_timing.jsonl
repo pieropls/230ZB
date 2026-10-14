@@ -1,0 +1,3 @@
+{"step": "score_pilot", "n": 600, "seconds": 3.7, "texts_per_s": 164.1, "load_seconds": 1.5, "device": "mps", "dtype": "torch.float16"}
+{"step": "score", "n": 7064, "seconds": 33.1, "texts_per_s": 213.5, "load_seconds": 1.6, "device": "mps", "dtype": "torch.float16"}
+{"step": "score_docs (scenario C)", "n": 1600, "seconds": 40.1, "texts_per_s": 39.9, "device": "mps", "dtype": "torch.float16", "rebuild_seconds": 48.6}

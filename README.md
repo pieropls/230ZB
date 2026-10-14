@@ -10,7 +10,7 @@ Instructor: Prof. Ali Kakhbod
 
 **Piero Pelosi, Romain Almeida, Elias Roubache**
 
-[Paper](https://arxiv.org/abs/2301.10226) · [Official code](https://github.com/jwkirchenbauer/lm-watermarking) · [Presentation](presentation/main.pdf) · [Notebook](watermark.ipynb)
+[Paper](https://arxiv.org/abs/2301.10226) · [Official code](https://github.com/jwkirchenbauer/lm-watermarking) · [Report](report/main.pdf) · [Presentation](presentation/main.pdf) · [Notebook](watermark.ipynb)
 
 </div>
 
@@ -46,6 +46,7 @@ The words come from a small toy language model (277 words), so the page works of
 - **Extension 2, a 2026 attacker.** One prompt to a free 1.5B chat model removes more of the watermark than the paper's T5 attack at the same meaning kept. Still detected at 1% false positives: 43.5% after the rewrite, against 81% after T5.
 - **Extension 3, copy-paste.** Take a 60-token watermarked passage inside a 600-token human text. The whole-text test catches it 11.5% of the time; a sliding window (WinMax, from the authors' follow-up) catches it 86.5% of the time.
 - **Extension 4, a side effect of the key.** Under our key, the watermark makes texts stop early: 16% end before 50 tokens, against 6% without it.
+- **Extension 5, the watermark as a filter for sentiment data.** If an attacker adds watermarked AI texts to a sentiment feed, dropping the texts flagged at z = 4 undoes 95% of the damage for 200-token texts, 40% at 50 tokens and 7% at 25 (where z cannot exceed 5); a full paraphrase brings it under 1%, and AI text without the watermark is untouched. Recovery equals the detection rate to within 0.03: the texts that escape are not a special sample by sentiment.
 
 Square brackets below are 95% intervals: Wilson for rates, bootstrap for medians. [RESULTS.md](RESULTS.md) has every table in full. [presentation/NUMBERS.md](presentation/NUMBERS.md) traces every number on the slides to its source.
 
@@ -144,7 +145,9 @@ Main setting (γ = 0.5, δ = 2, T = 200; 497 watermarked texts, 1,000 human text
 
 <p align="center"><img src="figures/head_z_hist.png" width="620" alt="z-scores of watermarked and human texts"></p>
 
-Across Table 8's 12 settings of δ, γ and decoding, 11 match the paper within our 95% intervals. Against the T5 attack (Table 9) the curves have the same shape: from 30% of words swapped on, our numbers agree with the paper's or come close.
+Across Table 8's 12 settings of δ, γ and decoding, 11 match the paper within our 95% intervals. Against the T5 attack (Table 9) the curves have the same shape: from 30% of words swapped on, our numbers agree with the paper's or come close. The paper's Fig. 2 points (strength against quality) were digitised from the vector PDFs in its arXiv source (`digitize_fig2.py`): over the 31 settings present in both, our mean z is within 0.78 of the paper's everywhere (median gap 0.22), and perplexity sits 0.2 to 1.0 above the paper's at every δ including 0, so that offset comes from the oracle run, not from the watermark.
+
+<p align="center"><img src="figures/fig2_tradeoff_vs_paper.png" width="760" alt="Fig. 2 replicated with the paper's points overlaid"></p>
 
 What we could not reproduce:
 
@@ -199,8 +202,25 @@ Removing the watermark still costs meaning, but it now takes one prompt to a fre
 **Extension 4: the key can change when the model stops.** Under our key, after a period the end-of-text token is green, while newline, the usual next token, is red. At δ = 2 this multiplies the chance of stopping by about 2.3. As a result, 16% [14, 18] of watermarked texts end before 50 tokens, against 6% [4, 7] without the watermark. Under three other keys the multiplier is 0.17, 1.18 and 0.32, and text lengths look normal. The paper keeps only texts of 200 ± 5 tokens, which hides this effect.
 
 <p align="center"><img src="figures/keys_eos.png" width="680" alt="Text length under four hash keys"></p>
+<p align="center"><img src="figures/length_by_key.png" width="760" alt="Text length under four hash keys: survival curves and shares"></p>
 
-Extension numbers follow the presentation. RESULTS.md, the notebook and the figure files use the earlier labels: Extension 1 = 1a–1c, Extension 2 = 2a, Extension 3 = 2b, Extension 4 = the key and length check.
+**Extension 5: the watermark as a filter for sentiment data.** A sentiment signal is built from many texts; some are written by a model to push it. We build buckets of 50 human news texts (FinBERT score, truth = the bucket's human mean), add slanted watermarked texts to half of them (share c = 0.1 or 0.3, the top or bottom third of the AI pool by sentiment), and measure how much of the damage is undone by removing the texts the detector flags, between the no-filter and perfect-filter bounds. 500 re-draws; the simulation runs in seconds from a per-text table (`python run.py ext3`). No new text was generated: every AI text comes from the earlier extensions.
+
+| AI texts | tokens | detection at z = 4 | recovery, c = 0.3 | predicted from the detection rate |
+|---|---|---|---|---|
+| watermarked | 25 | 0.103 | 0.071 [0.051, 0.089] | 0.071 |
+| watermarked | 50 | 0.533 | 0.397 [0.361, 0.434] | 0.417 |
+| watermarked | 100 | 0.939 | 0.868 [0.836, 0.896] | 0.895 |
+| watermarked | 200 | 0.986 | 0.954 [0.938, 0.973] | 0.976 |
+| light paraphrase | 151 | 0.220 | 0.149 [0.130, 0.167] | 0.169 |
+| full paraphrase | 178 | 0.015 | 0.006 [0.004, 0.008] | 0.011 |
+| no watermark | 200 | 0.002 | 0.000 | 0.000 |
+
+Recovery follows the detection rate (the prediction removes the same number of AI texts at random, so it assumes escaping is unrelated to sentiment; the gap is at most 0.03 and never significant). What the earlier extensions measured as lost detection, short texts and paraphrase, is lost signal quality one for one; a model that does not embed the watermark is invisible. A threshold calibrated to 1% false positives lifts the 25-token recovery from 0.07 to 0.63 at the cost of 20 human texts in 5,000, and on 60-token passages pasted into human documents the sliding-window detector recovers 0.66 where the whole-text test recovers nothing. The campaign is synthetic (we inject the texts), so this is the value of the filter if providers embed the watermark, not evidence about real feeds.
+
+<p align="center"><img src="figures/ext3_recovery_vs_length.png" width="760" alt="Ext. 5: recovery against text length"></p>
+
+Extension numbers follow the presentation. RESULTS.md, the notebook and the figure files use the earlier labels: Extension 1 = 1a–1c, Extension 2 = 2a, Extension 3 = 2b, Extension 4 = the key and length check, Extension 5 = `ext3_filter` (its spec, plan and handoff: `SPEC_ext3_filter.md`, `PLAN_ext3.md`, `HANDOFF_ext3.md`).
 
 ---
 
@@ -233,6 +253,8 @@ Every generated row stores the green rank of each token rather than a 0/1 flag. 
 | `plots.py` | one function per figure (matplotlib) |
 | `run.py` | command line for every step: `python run.py list` |
 | `watermark.ipynb` | loads the results, builds every table and figure, shows them next to the paper's |
+| `ext3.py` | Extension 5: bucket simulation, recovery and its predictions, from the per-text table (numpy, seconds) |
+| `digitize_fig2.py` | reads the paper's Fig. 2 points out of the vector PDFs in its arXiv source (needs `pymupdf`; output already in `results/summary/fig2_paper.csv`) |
 | `download.py` | data, models and the official code (pinned commit) |
 | `presentation/main.tex`, `main.pdf` | the class slides (beamer; compiles on Overleaf) |
 | `presentation/make_figures.py` | every slide figure and the opening emails, from `results/` |
@@ -286,10 +308,13 @@ python run.py check     # 16 watermarked generations (most with z > 4) and 16 un
 | `para`, `t5`, `t5w`, `score` | Extension 2a and Table 9 | 9 h |
 | `dilution` | Extension 2b | 1 min |
 | `ppl`, `ppl_qwen` | oracle perplexity | 1 h |
+| `ext3`, `ext3_docs` | Extension 5: FinBERT scores and the per-text table (no generation) | 3 min |
 
 The total is about 20 hours, dominated by the T5 attacks and 8-beam search. Sampling on another device draws different random numbers, so a full re-run reproduces the statistics, not the exact texts.
 
 **Slides.** `cd presentation && ../.venv/bin/python make_figures.py` regenerates every slide figure from `results/`. Compile `main.tex` with pdflatex (twice), or upload the `presentation/` folder to Overleaf.
+
+**Report.** `report/main.tex` (with `refs.bib`) is the written report, `report/main.pdf` the submitted version; it includes the figures from `figures/`. `cd paper_figures && ../.venv/bin/python make_figures.py` redraws the report's figures as title-free vector PDFs from `results/` (the slide figures' code with the in-image titles removed, plus the Extension 5 recovery figure).
 
 ---
 
@@ -305,11 +330,15 @@ The total is about 20 hours, dominated by the T5 attacks and 8-beam search. Samp
 ├── stats.py              z-scores, ROC/AUC, Theorem 4.2, confidence intervals
 ├── plots.py              one function per figure
 ├── run.py                command line for every step
+├── ext3.py               Extension 5: sentiment-filter simulation
 ├── download.py           data, models, official code
+├── SPEC_ext3_filter.md   spec of Extension 5; PLAN_ext3.md its plan, HANDOFF_ext3.md what ran
 ├── requirements.txt      pinned versions
 ├── LICENSE
-├── figures/              18 figures (PNG) and the TriviaQA table
+├── figures/              24 figures (PNG) and the TriviaQA table
 ├── presentation/         slides (main.tex, main.pdf), slide figures, NUMBERS.md, live demo (watermark-live.html)
+├── report/               written report (main.tex, refs.bib, main.pdf)
+├── paper_figures/        title-free vector versions of the report's figures and the script that draws them
 └── results/
     ├── prompts_c4.jsonl.gz   2,000 C4 prompts with their human baselines
     ├── raw/                  every generation, attack and perplexity (gzipped JSON lines)
